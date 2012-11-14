@@ -1,0 +1,4 @@
+begin program "ocp-edit-simple"
+      files = [ "main.ml" ]
+      requires = [ "lablgtk"; "unix" ]
+end
