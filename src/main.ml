@@ -26,6 +26,7 @@ let rec protect ?(loop=false) f x =
 let load_file name =
   protect (Tools.File.load name) @@ fun contents ->
     let buffer = GText.buffer ~text:contents () in
+    buffer#set_modified false;
     current_buffer := {
       filename = Some name;
       gbuffer = buffer;
@@ -52,17 +53,22 @@ let _bind_actions =
   ignore @@ Gui.button_save_as#connect#clicked ~callback:save_to_file_ask
   ;
   ignore @@ Gui.button_save#connect#clicked
-    ~callback:(save_to_file_ask ?name:!current_buffer.filename)
+    ~callback:(fun () -> save_to_file_ask ?name:!current_buffer.filename ())
   ;
-  let quit () =
-    if !current_buffer.gbuffer#modified then
-      Gui.quit_dialog !current_buffer.filename
-      @@ save_to_file_ask ?name:!current_buffer.filename
-    else
-      GMain.Main.quit ()
+  let check_before_quit _ =
+    !current_buffer.gbuffer#modified
+    && Gui.quit_dialog !current_buffer.filename @@ fun () ->
+      save_to_file_ask ?name:!current_buffer.filename ();
+      !current_buffer.gbuffer#modified
   in
-  ignore @@ Gui.button_quit#connect#clicked ~callback:quit;
-  ignore @@ Gui.main_window#connect#destroy ~callback:quit (* stop propagation?*)
+  ignore @@ Gui.button_quit#connect#clicked
+    ~callback:(fun () ->
+      if not (check_before_quit ()) then Gui.main_window#destroy ());
+  ignore @@ Gui.main_window#event#connect#delete
+    ~callback:check_before_quit;
+  ignore @@ Gui.main_window#connect#destroy
+    ~callback:GMain.Main.quit
+
 
 let _ =
   Tools.debug "Init done, showing main window";

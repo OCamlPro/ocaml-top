@@ -1,4 +1,5 @@
 open Tools.Ops
+
 let _ = GtkMain.Main.init()
 
 (* Some operators to make the layout building look more functional and
@@ -112,8 +113,11 @@ let quit_dialog filename save_k =
   (*       +< GButton.button ~stock:`QUIT () *)
   (*       +> GButton.button ~stock:`CANCEL ()) *)
   (* in *)
+  let resp = ref true in
   ignore @@ dialog#connect#response ~callback:(function
-  | `SAVE -> save_k (); GMain.Main.quit ()
-  | `QUIT -> GMain.Main.quit ()
-  | `CANCEL | `DELETE_EVENT -> dialog#destroy ());
-  ignore @@ dialog#run ()
+  | `SAVE -> resp := () |> save_k
+  | `QUIT -> resp := false
+  | `CANCEL | `DELETE_EVENT -> resp := true);
+  dialog#run ();
+  dialog#destroy ();
+  !resp
