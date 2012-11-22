@@ -1,14 +1,40 @@
 open Tools.Ops
 
-type buffer = {
-  filename: string option;
-  gbuffer: GText.buffer;
-}
+module Buffer = struct
+  type t = {
+    mutable filename: string option;
+    gbuffer: GText.buffer;
+  }
 
-let current_buffer = ref {
-  filename = None;
-  gbuffer = GText.buffer ();
-}
+  let is_modified buf = buf.gbuffer#modified
+
+  let unmodify buf = buf.gbuffer#set_modified false
+
+  let contents buf = buf.gbuffer#get_text ()
+
+  let filename buf = buf.filename
+
+  let set_filename buf name =
+    buf.filename <- Some name
+
+  let create ?name ?(contents="") view =
+    let buf = {
+      filename = name;
+      gbuffer =
+        if Glib.Utf8.validate contents then
+          let gbuf = GText.buffer ~text:contents ()
+          in view#set_buffer gbuf; gbuf
+        else
+          Tools.recover_error
+            ("Could not open file %S because it contains invalid utf-8 characters. "
+             ^^ "Please fix it or choose another file")
+            (match name with Some n -> n | None -> "<unnamed>")
+    } in
+    unmodify buf;
+    buf
+end
+
+let current_buffer = ref (Buffer.create Gui.text_view)
 
 let rec protect ?(loop=false) f x =
   try
@@ -25,41 +51,40 @@ let rec protect ?(loop=false) f x =
 
 let load_file name =
   protect (Tools.File.load name) @@ fun contents ->
-    let buffer = GText.buffer ~text:contents () in
-    buffer#set_modified false;
-    current_buffer := {
-      filename = Some name;
-      gbuffer = buffer;
-    };
-    (* buffer#connect#changed ~callback: *)
-    Gui.text_view#set_buffer buffer
+    let buf = Buffer.create ~name ~contents Gui.text_view in
+    current_buffer := buf
 
 let _bind_actions =
   ignore @@ Gui.button_load#connect#clicked
     ~callback:(fun () -> Gui.choose_file `OPEN load_file)
   ;
   let save_to_file name () =
-    let contents = !current_buffer.gbuffer#get_text () in
+    let contents = Buffer.contents !current_buffer in
     protect (Tools.File.save contents name) @@ fun () ->
-      !current_buffer.gbuffer#set_modified false;
-      current_buffer := {!current_buffer with
-        filename = Some name;
-      }
+      Buffer.set_filename !current_buffer name;
+      Buffer.unmodify !current_buffer;
   in
   let save_to_file_ask ?name () = match name with
     | Some n -> save_to_file n ()
-    | None -> Gui.choose_file `SAVE (fun name -> save_to_file name ())
+    | None ->
+      Gui.choose_file `SAVE  @@ fun name ->
+        if Sys.file_exists name then
+          Gui.confirm ~title:"Overwrite ?"
+            (Printf.sprintf "File %S already exists. Overwrite ?" name)
+          @@ save_to_file name
+        else
+          save_to_file name ()
   in
   ignore @@ Gui.button_save_as#connect#clicked ~callback:save_to_file_ask
   ;
   ignore @@ Gui.button_save#connect#clicked
-    ~callback:(fun () -> save_to_file_ask ?name:!current_buffer.filename ())
+    ~callback:(fun () -> save_to_file_ask ?name:(Buffer.filename !current_buffer) ())
   ;
   let check_before_quit _ =
-    !current_buffer.gbuffer#modified
-    && Gui.quit_dialog !current_buffer.filename @@ fun () ->
-      save_to_file_ask ?name:!current_buffer.filename ();
-      !current_buffer.gbuffer#modified
+    Buffer.is_modified !current_buffer &&
+      Gui.quit_dialog (Buffer.filename !current_buffer) @@ fun () ->
+        save_to_file_ask ?name:(Buffer.filename !current_buffer) ();
+        Buffer.is_modified !current_buffer
   in
   ignore @@ Gui.button_quit#connect#clicked
     ~callback:(fun () ->

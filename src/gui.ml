@@ -73,6 +73,10 @@ let choose_file action callback =
       | None -> failwith "None selected"
       | Some name -> callback name; dialog#destroy ()
   in
+  dialog#add_filter @@
+    GFile.filter ~name:"OCaml source (*.ml)" ~patterns:["*.ml"] ();
+  dialog#add_filter @@
+    GFile.filter ~name:"All files" ~patterns:["*"] ();
   dialog#add_select_button_stock (action :> GtkStock.id) `APPLY;
   dialog#add_button_stock `CANCEL `CANCEL;
   ignore @@ dialog#connect#response ~callback;
@@ -87,8 +91,9 @@ let error_message ~title message =
     ~buttons:GWindow.Buttons.close
     ()
   in
-  ignore @@ dialog#connect#response ~callback:(fun _ -> dialog#destroy ());
-  ignore @@ dialog#run ()
+  (* ignore @@ dialog#connect#response; *)
+  ignore @@ dialog#run ();
+  dialog#destroy ()
 
 let quit_dialog filename save_k =
   let filename = match filename with
@@ -103,21 +108,26 @@ let quit_dialog filename save_k =
   dialog#add_button_stock `SAVE `SAVE;
   dialog#add_button_stock `QUIT `QUIT;
   dialog#add_button_stock `CANCEL `CANCEL;
-  (* let dialog = *)
-  (*   GWindow.dialog ~title:"Quit" *)
-  (*   +< GMisc.label *)
-  (*     ~markup:(filename^" contains unsaved changes. What to do ?") *)
-  (*     () *)
-  (*   +> (GPack.button_box `HORIZONTAL *)
-  (*       +< GButton.button ~stock:`SAVE () *)
-  (*       +< GButton.button ~stock:`QUIT () *)
-  (*       +> GButton.button ~stock:`CANCEL ()) *)
-  (* in *)
   let resp = ref true in
   ignore @@ dialog#connect#response ~callback:(function
   | `SAVE -> resp := () |> save_k
   | `QUIT -> resp := false
   | `CANCEL | `DELETE_EVENT -> resp := true);
-  dialog#run ();
+  ignore @@ dialog#run ();
   dialog#destroy ();
   !resp
+
+let confirm ~title message k =
+  let dialog = GWindow.message_dialog
+    ~title
+    ~message
+    ~use_markup:true
+    ~message_type:`QUESTION
+    ~buttons:GWindow.Buttons.yes_no
+    ()
+  in
+  ignore @@ dialog#connect#response ~callback:(function
+  | `YES -> () |> k
+  | `NO | `DELETE_EVENT -> ());
+  ignore @@ dialog#run ();
+  dialog#destroy ()
