@@ -3,7 +3,7 @@ open Tools.Ops
 module Buffer = struct
   type t = {
     mutable filename: string option;
-    gbuffer: GText.buffer;
+    gbuffer: GSourceView2.source_buffer
   }
 
   let is_modified buf = buf.gbuffer#modified
@@ -17,24 +17,49 @@ module Buffer = struct
   let set_filename buf name =
     buf.filename <- Some name
 
-  let create ?name ?(contents="") view =
-    let buf = {
-      filename = name;
-      gbuffer =
-        if Glib.Utf8.validate contents then
-          let gbuf = GText.buffer ~text:contents ()
-          in view#set_buffer gbuf; gbuf
-        else
-          Tools.recover_error
-            ("Could not open file %S because it contains invalid utf-8 characters. "
-             ^^ "Please fix it or choose another file")
-            (match name with Some n -> n | None -> "<unnamed>")
-    } in
-    unmodify buf;
-    buf
+  let create ?name ?(contents="") (k: GSourceView2.source_buffer -> unit) =
+    let gbuffer =
+      let language =
+        (GSourceView2.source_language_manager ~default:true)#language
+          "objective-caml"
+      in
+      let style_scheme =
+        (GSourceView2.source_style_scheme_manager ~default:true)#style_scheme
+          "cobalt"
+      in
+      if language = None then
+        Tools.debug "Oops, ocaml syntax not found... I only got:\n%s"
+        @@ String.concat ", "
+        @@ (GSourceView2.source_language_manager ~default:true)#language_ids
+      else Tools.debug "Cool, syntax found";
+      if style_scheme = None then
+        Tools.debug "Oops, style not found... I only got:\n%s"
+        @@ String.concat ", "
+        @@ (GSourceView2.source_style_scheme_manager ~default:true)
+          #style_scheme_ids;
+
+      if Glib.Utf8.validate contents then
+        GSourceView2.source_buffer
+          ~text:contents
+          ?language
+          ?style_scheme
+          ~highlight_matching_brackets:true
+          ~highlight_syntax:true
+          ()
+      else
+        Tools.recover_error
+          ("Could not open file %S because it contains invalid utf-8 "
+           ^^ "characters. Please fix it or choose another file")
+          (match name with Some n -> n | None -> "<unnamed>")
+    in
+    gbuffer |> k;
+    let t = { filename = name; gbuffer } in
+    unmodify t;
+    t
+
 end
 
-let current_buffer = ref (Buffer.create Gui.text_view)
+let current_buffer = ref (Buffer.create Gui.open_text_view)
 
 let rec protect ?(loop=false) f x =
   try
@@ -51,7 +76,7 @@ let rec protect ?(loop=false) f x =
 
 let load_file name =
   protect (Tools.File.load name) @@ fun contents ->
-    let buf = Buffer.create ~name ~contents Gui.text_view in
+    let buf = Buffer.create ~name ~contents Gui.open_text_view in
     current_buffer := buf
 
 let _bind_actions =

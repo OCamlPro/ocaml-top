@@ -32,28 +32,42 @@ and button_save_as = GButton.button ~stock:`SAVE_AS ()
 and button_quit = GButton.button ~stock:`QUIT ()
 
 let toolbar =
-  GButton.toolbar (* ~orientation:`HORIZONTAL *)
+  GButton.toolbar
   +< button_load
   +< button_save
   +< button_save_as
   +> button_quit
 
-let text_view =
-  let view = GText.view () in
-  view#misc#modify_base [`NORMAL, `NAME "grey20"];
-  view#misc#modify_text [`NORMAL, `NAME "wheat"];
-  view#misc#modify_font (Pango.Font.from_string "Monospace 10");
-  view
+let main_view =
+  GBin.scrolled_window ~vpolicy:`AUTOMATIC ~hpolicy:`AUTOMATIC ()
 
 let main_window =
   let win =
-    GWindow.window ~title:"ocp-edit-simple" ~width:640 ~height:480
+    GWindow.window ~title:"ocp-edit-simple" ~height:600
     +> (GPack.vbox
-        ++< (toolbar, fun c o -> c#pack ~expand:false o)
-        +> (GBin.scrolled_window
-            +> text_view))
+        ++< (toolbar, fun c o -> c#pack o)
+        +> main_view)
   in
   win
+
+let open_text_view buffer =
+  let font = Pango.Font.from_string "Monospace 10" in
+  let view =
+    GSourceView2.source_view
+      ~source_buffer:buffer
+      ~auto_indent:true
+      ~highlight_current_line:true
+      ~accepts_tab:false
+      ~wrap_mode:`CHAR
+      ()
+  in
+  List.iter main_view#remove main_view#children;
+  main_view#add (view :> GObj.widget);
+  view#misc#modify_base [`NORMAL, `NAME "grey20"];
+  view#misc#modify_text [`NORMAL, `NAME "wheat"];
+  view#misc#modify_font font;
+  view#misc#set_size_chars ~width:81 ()
+
 
 let choose_file action callback =
   let title, button_label = match action with
