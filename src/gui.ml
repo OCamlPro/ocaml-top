@@ -66,7 +66,9 @@ let open_text_view buffer =
   view#misc#modify_base [`NORMAL, `NAME "grey20"];
   view#misc#modify_text [`NORMAL, `NAME "wheat"];
   view#misc#modify_font font;
-  view#misc#set_size_chars ~width:81 ()
+  view#misc#set_size_chars ~width:81 ();
+  view#place_cursor_onscreen ();
+  view#misc#grab_focus ()
 
 
 let choose_file action callback =

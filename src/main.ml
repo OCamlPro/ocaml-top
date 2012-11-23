@@ -1,18 +1,26 @@
 open Tools.Ops
 
+let set_window_title fmt =
+  Printf.ksprintf Gui.main_window#set_title (fmt ^^ " - ocp-edit-simple")
+
 module Buffer = struct
   type t = {
     mutable filename: string option;
     gbuffer: GSourceView2.source_buffer
   }
 
+  let contents buf = buf.gbuffer#get_text ()
+
   let is_modified buf = buf.gbuffer#modified
 
   let unmodify buf = buf.gbuffer#set_modified false
 
-  let contents buf = buf.gbuffer#get_text ()
-
   let filename buf = buf.filename
+
+  let filename_default ?(default="<unnamed.ml>") buf =
+    match buf.filename with
+    | Some f -> Filename.basename f
+    | None -> default
 
   let set_filename buf name =
     buf.filename <- Some name
@@ -52,9 +60,15 @@ module Buffer = struct
            ^^ "characters. Please fix it or choose another file")
           (match name with Some n -> n | None -> "<unnamed>")
     in
-    gbuffer |> k;
+    (* workaround: if we don't do this, loading of the file can be undone *)
+    gbuffer#begin_not_undoable_action ();
     let t = { filename = name; gbuffer } in
+    ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
+      set_window_title "%s%s" (filename_default t) @@
+        if gbuffer#modified then "*" else "");
     unmodify t;
+    gbuffer |> k;
+    gbuffer#end_not_undoable_action ();
     t
 
 end
@@ -80,8 +94,17 @@ let load_file name =
     current_buffer := buf
 
 let _bind_actions =
-  ignore @@ Gui.button_load#connect#clicked
-    ~callback:(fun () -> Gui.choose_file `OPEN load_file)
+  let load_dialog () =
+    let dialog () = Gui.choose_file `OPEN load_file in
+    if Buffer.is_modified !current_buffer then
+      Gui.confirm ~title:"File modified"
+        (Printf.sprintf "Discard your changes to %S ?"
+         @@ Buffer.filename_default ~default:"the current buffer" !current_buffer)
+      @@ dialog
+    else
+      dialog ()
+  in
+  ignore @@ Gui.button_load#connect#clicked ~callback:load_dialog
   ;
   let save_to_file name () =
     let contents = Buffer.contents !current_buffer in
