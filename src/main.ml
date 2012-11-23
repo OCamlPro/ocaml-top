@@ -26,26 +26,16 @@ module Buffer = struct
     buf.filename <- Some name
 
   let create ?name ?(contents="") (k: GSourceView2.source_buffer -> unit) =
+    Tools.debug "create %s <<%s>>" (match name with None -> "None" | Some x -> x) contents;
     let gbuffer =
       let language =
-        (GSourceView2.source_language_manager ~default:true)#language
-          "objective-caml"
+        (GSourceView2.source_language_manager ~default:true)
+          #language "objective-caml"
       in
       let style_scheme =
-        (GSourceView2.source_style_scheme_manager ~default:true)#style_scheme
-          "cobalt"
+        (GSourceView2.source_style_scheme_manager ~default:true)
+          #style_scheme "cobalt"
       in
-      if language = None then
-        Tools.debug "Oops, ocaml syntax not found... I only got:\n%s"
-        @@ String.concat ", "
-        @@ (GSourceView2.source_language_manager ~default:true)#language_ids
-      else Tools.debug "Cool, syntax found";
-      if style_scheme = None then
-        Tools.debug "Oops, style not found... I only got:\n%s"
-        @@ String.concat ", "
-        @@ (GSourceView2.source_style_scheme_manager ~default:true)
-          #style_scheme_ids;
-
       if Glib.Utf8.validate contents then
         GSourceView2.source_buffer
           ~text:contents
@@ -62,6 +52,7 @@ module Buffer = struct
     in
     (* workaround: if we don't do this, loading of the file can be undone *)
     gbuffer#begin_not_undoable_action ();
+    gbuffer#place_cursor ~where:gbuffer#start_iter;
     let t = { filename = name; gbuffer } in
     ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
       set_window_title "%s%s" (filename_default t) @@
@@ -145,6 +136,5 @@ let _bind_actions =
 
 let _ =
   Tools.debug "Init done, showing main window";
-  Gui.main_window#show ();
   if Array.length (Sys.argv) > 1 then load_file Sys.argv.(1);
   protect ~loop:true GMain.main ()

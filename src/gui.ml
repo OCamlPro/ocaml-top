@@ -43,7 +43,7 @@ let main_view =
 
 let main_window =
   let win =
-    GWindow.window ~title:"ocp-edit-simple" ~height:600
+    GWindow.window ~title:"ocp-edit-simple" ~height:600 ~show:true
     +> (GPack.vbox
         ++< (toolbar, fun c o -> c#pack o)
         +> main_view)
@@ -67,9 +67,7 @@ let open_text_view buffer =
   view#misc#modify_text [`NORMAL, `NAME "wheat"];
   view#misc#modify_font font;
   view#misc#set_size_chars ~width:81 ();
-  view#place_cursor_onscreen ();
   view#misc#grab_focus ()
-
 
 let choose_file action callback =
   let title, button_label = match action with
