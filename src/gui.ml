@@ -41,22 +41,30 @@ let toolbar =
 let main_view =
   GBin.scrolled_window ~vpolicy:`AUTOMATIC ~hpolicy:`AUTOMATIC ()
 
+let toplevel_view =
+  GBin.scrolled_window ~vpolicy:`AUTOMATIC ~hpolicy:`AUTOMATIC ()
+
 let main_window =
   let win =
     GWindow.window ~title:"ocp-edit-simple" ~height:600 ~show:true
     +> (GPack.vbox
         ++< (toolbar, fun c o -> c#pack o)
-        +> main_view)
+        +> (GPack.hbox
+            +< main_view
+            +> toplevel_view))
   in
   win
 
 let open_text_view buffer =
+  Tools.debug "open text view";
   let font = Pango.Font.from_string "Monospace 10" in
   let view =
     GSourceView2.source_view
       ~source_buffer:buffer
       ~auto_indent:true
       ~highlight_current_line:true
+      ~indent_on_tab:true
+      ~indent_width:2
       ~accepts_tab:false
       ~wrap_mode:`CHAR
       ()
@@ -68,6 +76,28 @@ let open_text_view buffer =
   view#misc#modify_font font;
   view#misc#set_size_chars ~width:81 ();
   view#misc#grab_focus ()
+
+let open_toplevel_view top_buf =
+  Tools.debug "open top view";
+  let font = Pango.Font.from_string "Monospace 10" in
+  let view =
+    GSourceView2.source_view
+      ~source_buffer:top_buf
+      ~auto_indent:false
+      ~highlight_current_line:false
+      ~indent_on_tab:false
+      ~indent_width:2
+      ~accepts_tab:false
+      ~wrap_mode:`CHAR
+      ~cursor_visible:false
+      ~editable:false
+      ()
+  in
+  toplevel_view#add (view :> GObj.widget);
+  view#misc#modify_base [`NORMAL, `NAME "grey20"];
+  view#misc#modify_text [`NORMAL, `NAME "wheat"];
+  view#misc#modify_font font;
+  view#misc#set_size_chars ~width:81 ()
 
 let choose_file action callback =
   let title, button_label = match action with

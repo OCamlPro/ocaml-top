@@ -3,6 +3,15 @@ open Tools.Ops
 let set_window_title fmt =
   Printf.ksprintf Gui.main_window#set_title (fmt ^^ " - ocp-edit-simple")
 
+module GSourceView_params = struct
+  let syntax =
+    (GSourceView2.source_language_manager ~default:true)
+      #language "objective-caml"
+  let style =
+    (GSourceView2.source_style_scheme_manager ~default:true)
+      #style_scheme "cobalt"
+end
+
 module Buffer = struct
   type t = {
     mutable filename: string option;
@@ -28,27 +37,18 @@ module Buffer = struct
   let create ?name ?(contents="") (k: GSourceView2.source_buffer -> unit) =
     Tools.debug "create %s <<%s>>" (match name with None -> "None" | Some x -> x) contents;
     let gbuffer =
-      let language =
-        (GSourceView2.source_language_manager ~default:true)
-          #language "objective-caml"
-      in
-      let style_scheme =
-        (GSourceView2.source_style_scheme_manager ~default:true)
-          #style_scheme "cobalt"
-      in
-      if Glib.Utf8.validate contents then
-        GSourceView2.source_buffer
-          ~text:contents
-          ?language
-          ?style_scheme
-          ~highlight_matching_brackets:true
-          ~highlight_syntax:true
-          ()
-      else
+      if not (Glib.Utf8.validate contents) then
         Tools.recover_error
           ("Could not open file %S because it contains invalid utf-8 "
            ^^ "characters. Please fix it or choose another file")
-          (match name with Some n -> n | None -> "<unnamed>")
+          (match name with Some n -> n | None -> "<unnamed>");
+      GSourceView2.source_buffer
+        ~text:contents
+        ?language:GSourceView_params.syntax
+        ?style_scheme:GSourceView_params.style
+        ~highlight_matching_brackets:true
+        ~highlight_syntax:true
+        ()
     in
     (* workaround: if we don't do this, loading of the file can be undone *)
     gbuffer#begin_not_undoable_action ();
@@ -65,6 +65,14 @@ module Buffer = struct
 end
 
 let current_buffer = ref (Buffer.create Gui.open_text_view)
+let toplevel_buffer =
+  GSourceView2.source_buffer
+    ?language:GSourceView_params.syntax
+    ?style_scheme:GSourceView_params.style
+    ~highlight_matching_brackets:true
+    ~highlight_syntax:true
+    ?undo_manager:None
+    ()
 
 let rec protect ?(loop=false) f x =
   try
@@ -131,10 +139,11 @@ let _bind_actions =
   ignore @@ Gui.main_window#event#connect#delete
     ~callback:check_before_quit;
   ignore @@ Gui.main_window#connect#destroy
-    ~callback:GMain.Main.quit
+    ~callback:GMain.quit
 
 
 let _ =
   Tools.debug "Init done, showing main window";
   if Array.length (Sys.argv) > 1 then load_file Sys.argv.(1);
+  Gui.open_toplevel_view toplevel_buffer;
   protect ~loop:true GMain.main ()
