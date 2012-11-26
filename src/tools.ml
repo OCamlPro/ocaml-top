@@ -13,11 +13,16 @@ let debug =
   else
     fun fmt -> Printf.ifprintf stderr fmt
 
-let printexc e =
-  if debug_enabled then
-    Printf.sprintf "%s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ())
-  else
-    Printexc.to_string e
+let printexc =
+  let pr e = match e with
+    | Unix.Unix_error (err,fn,_param) ->
+      Printf.sprintf "%s: %s" fn (Unix.error_message err)
+    | e -> Printexc.to_string e
+  in
+  if debug_enabled then fun e ->
+    Printf.sprintf "%s\n%s" (pr e) (Printexc.get_backtrace ())
+  else fun e ->
+    pr e
 
 exception Recoverable_error of string
 let recover_error fmt =

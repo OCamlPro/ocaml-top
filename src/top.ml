@@ -1,15 +1,80 @@
+(* We want non-blocking input and are stuck with the scheduler from Gtk (aka
+   main loop) here. So we can either go through Glib's IO, or spawn a thread for
+   polling. The former sounds simpler and safer, although lablGTK is lacking in
+   this area... *)
+module GIO = Glib.Io
+
+open Tools.Ops
+
+type status =
+| Ready
+| Computing of string
+
 
 type t = {
+  pid: int;
   query_channel: out_channel;
-  response_channel: in_channel;
+  response_channel: GIO.channel;
+  error_channel: GIO.channel;
 }
 
 
 let start () =
-  let response_channel,query_channel =
-    Unix.open_process "ocaml"
+  let top_stdin,query_fdescr = Unix.pipe() in
+  let response_fdescr,top_stdout = Unix.pipe() in
+  let error_fdescr,top_stderr = Unix.pipe() in
+  let ocaml_pid =
+    Unix.create_process "ocaml" [||] top_stdin top_stdout top_stderr
   in
-  { query_channel; response_channel; }
+  Tools.debug "Toplevel started";
+  Unix.set_nonblock response_fdescr;
+  let t = {
+    pid = ocaml_pid;
+    query_channel = Unix.out_channel_of_descr query_fdescr;
+    response_channel = GIO.channel_of_descr response_fdescr;
+    error_channel = GIO.channel_of_descr error_fdescr;
+  } in
+  t
+
+(* lablgtk's interface for Glib reading is weird: different and more limited
+   than the original Glib one. This function just reads what it can from the
+   channel and returns it as a string. *)
+let gread ch =
+  Tools.debug "Reading output from ocaml";
+  let len = 4096 in
+  let buf = Buffer.create len in
+  let str = String.create len in
+  let rec try_read () =
+    try
+      let n = GIO.read_chars ch ~buf:str ~pos:0 ~len in
+      if n > 0 then
+        (Buffer.add_substring buf str 0 n; try_read())
+    with
+    | Unix.Unix_error (Unix.EAGAIN,_,_)
+    | Unix.Unix_error (Unix.EWOULDBLOCK,_,_) ->
+      ()
+    (* Why, WHY do they wrap this in a string ?? *)
+    | Glib.GError s as exc ->
+      let i = String.index s ' ' in
+      let e = String.sub s (i+1) (String.length s - i - 1) in
+      match e with
+      | "G_IO_STATUS_AGAIN" -> ()
+      | _ ->
+        Tools.debug "Glib io error in gread: «%s»" s;
+        raise exc
+  in
+  try_read ();
+  (* todo: sanitize the contents (if the user is allowed i/o from the ocaml
+     program): may be invalid utf-8 *)
+  Buffer.contents buf
+
+let watch t f =
+  let _id =
+    GIO.add_watch t.response_channel ~cond:[ `IN ] ~prio:10 ~callback:(fun _ ->
+      f @@ gread t.response_channel;
+      true
+    )
+  in ()
 
 let flush t = flush t.query_channel
 
@@ -19,7 +84,7 @@ let query t q =
   flush t
 
 let response t =
-  input_line t.response_channel
+  gread t.response_channel
 
 let stop t =
   output_char t.query_channel '';

@@ -29,6 +29,7 @@ let (++>) builder obj =
 let button_load = GButton.button ~stock:`OPEN ()
 and button_save = GButton.button ~stock:`SAVE ()
 and button_save_as = GButton.button ~stock:`SAVE_AS ()
+and button_eval = GButton.button ~stock:`EXECUTE ()
 and button_quit = GButton.button ~stock:`QUIT ()
 
 let toolbar =
@@ -36,6 +37,7 @@ let toolbar =
   +< button_load
   +< button_save
   +< button_save_as
+  +< button_eval
   +> button_quit
 
 let main_view =
@@ -75,7 +77,8 @@ let open_text_view buffer =
   view#misc#modify_text [`NORMAL, `NAME "wheat"];
   view#misc#modify_font font;
   view#misc#set_size_chars ~width:81 ();
-  view#misc#grab_focus ()
+  view#misc#grab_focus ();
+  view
 
 let open_toplevel_view top_buf =
   Tools.debug "open top view";
@@ -97,7 +100,8 @@ let open_toplevel_view top_buf =
   view#misc#modify_base [`NORMAL, `NAME "grey20"];
   view#misc#modify_text [`NORMAL, `NAME "wheat"];
   view#misc#modify_font font;
-  view#misc#set_size_chars ~width:81 ()
+  view#misc#set_size_chars ~width:81 ();
+  view
 
 let choose_file action callback =
   let title, button_label = match action with

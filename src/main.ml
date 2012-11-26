@@ -15,7 +15,8 @@ end
 module Buffer = struct
   type t = {
     mutable filename: string option;
-    gbuffer: GSourceView2.source_buffer
+    gbuffer: GSourceView2.source_buffer;
+    view: GSourceView2.source_view;
   }
 
   let contents buf = buf.gbuffer#get_text ()
@@ -34,8 +35,8 @@ module Buffer = struct
   let set_filename buf name =
     buf.filename <- Some name
 
-  let create ?name ?(contents="") (k: GSourceView2.source_buffer -> unit) =
-    Tools.debug "create %s <<%s>>" (match name with None -> "None" | Some x -> x) contents;
+  let create ?name ?(contents="")
+      (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
     let gbuffer =
       if not (Glib.Utf8.validate contents) then
         Tools.recover_error
@@ -53,15 +54,22 @@ module Buffer = struct
     (* workaround: if we don't do this, loading of the file can be undone *)
     gbuffer#begin_not_undoable_action ();
     gbuffer#place_cursor ~where:gbuffer#start_iter;
-    let t = { filename = name; gbuffer } in
+    let view = mkview gbuffer in
+    let t = { filename = name; gbuffer; view } in
     ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
       set_window_title "%s%s" (filename_default t) @@
         if gbuffer#modified then "*" else "");
     unmodify t;
-    gbuffer |> k;
     gbuffer#end_not_undoable_action ();
     t
 
+  let get_selection buf =
+    let gbuf = buf.gbuffer in
+    if gbuf#has_selection then
+      let start,stop = gbuf#selection_bounds in
+      Some (gbuf#get_text ~start ~stop ())
+    else
+      None
 end
 
 let current_buffer = ref (Buffer.create Gui.open_text_view)
@@ -141,9 +149,26 @@ let _bind_actions =
   ignore @@ Gui.main_window#connect#destroy
     ~callback:GMain.quit
 
+let init_top_view () =
+  let top_view = Gui.open_toplevel_view toplevel_buffer in
+  let top = Top.start () in
+  let top_display response =
+    toplevel_buffer#insert ~iter:toplevel_buffer#end_iter response;
+    top_view#scroll_to_iter toplevel_buffer#end_iter
+  in
+  Top.watch top top_display;
+  let topeval () =
+    let phrase = match Buffer.get_selection !current_buffer with
+      | Some p -> p
+      | None -> Buffer.contents !current_buffer
+    in
+    toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
+    Top.query top phrase
+  in
+  ignore @@ Gui.button_eval#connect#clicked ~callback:topeval
 
 let _ =
   Tools.debug "Init done, showing main window";
   if Array.length (Sys.argv) > 1 then load_file Sys.argv.(1);
-  Gui.open_toplevel_view toplevel_buffer;
+  init_top_view ();
   protect ~loop:true GMain.main ()
