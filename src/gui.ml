@@ -44,11 +44,9 @@ module Controls = struct
         c
 
   let bind command action =
-    Tools.debug "Controls.bind %s" @@ to_string command;
     ignore @@ (signal command)#connect#activate ~callback:action
 
   let trigger command () =
-    Tools.debug "Controls.trigger %s" @@ to_string command;
     ignore @@ (signal command)#activate ()
 end
 
@@ -173,7 +171,6 @@ module Dialogs = struct
     dialog#destroy ()
 
   let quit filename save_k =
-    Tools.debug "Check before quit dialog";
     let filename = match filename with
       | Some f -> Printf.sprintf "File %S" f
       | None -> "Current buffer"

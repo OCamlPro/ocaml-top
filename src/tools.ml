@@ -45,7 +45,6 @@ module File = struct
         let buf = String.create size in
         really_input ic buf 0 size;
         close_in ic;
-        debug "%s loaded" filename;
         buf
       with
         Unix.Unix_error _ | Sys_error _ as e ->
@@ -60,8 +59,7 @@ module File = struct
       try
         let oc = open_out filename in
         output_string oc contents;
-        close_out oc;
-        debug "saved to %s" filename
+        close_out oc
       with
         Unix.Unix_error _ | Sys_error _ as e ->
           recover_error "<b>Error saving file <i>%s</i>:</b>\n%s"
