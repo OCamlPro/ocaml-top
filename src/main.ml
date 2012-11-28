@@ -87,67 +87,62 @@ let rec protect ?(loop=false) f x =
     f x
   with
   | Tools.Recoverable_error message ->
-      Gui.error_message ~title:"Error" message;
+      Gui.Dialogs.error ~title:"Error" message;
       if loop then protect f x
   | exc ->
-      Gui.error_message ~title:"Fatal error"
+      Gui.Dialogs.error ~title:"Fatal error"
         (Printf.sprintf"<b>Uncaught exception:</b>\n\n%s"
            (Printexc.to_string exc));
       exit 10
 
-let load_file name =
-  protect (Tools.File.load name) @@ fun contents ->
-    let buf = Buffer.create ~name ~contents Gui.open_text_view in
-    current_buffer := buf
+module Actions = struct
+  let load_file name =
+    protect (Tools.File.load name) @@ fun contents ->
+      let buf = Buffer.create ~name ~contents Gui.open_text_view in
+      current_buffer := buf
 
-let _bind_actions =
   let load_dialog () =
-    let dialog () = Gui.choose_file `OPEN load_file in
+    let dialog () = Gui.Dialogs.choose_file `OPEN load_file in
     if Buffer.is_modified !current_buffer then
-      Gui.confirm ~title:"File modified"
+      Gui.Dialogs.confirm ~title:"Please confirm"
         (Printf.sprintf "Discard your changes to %S ?"
-         @@ Buffer.filename_default ~default:"the current buffer" !current_buffer)
+         @@ Buffer.filename_default
+           ~default:"the current file" !current_buffer)
       @@ dialog
     else
       dialog ()
-  in
-  ignore @@ Gui.button_load#connect#clicked ~callback:load_dialog
-  ;
+
   let save_to_file name () =
     let contents = Buffer.contents !current_buffer in
     protect (Tools.File.save contents name) @@ fun () ->
       Buffer.set_filename !current_buffer name;
-      Buffer.unmodify !current_buffer;
-  in
+      Buffer.unmodify !current_buffer
+
   let save_to_file_ask ?name () = match name with
     | Some n -> save_to_file n ()
     | None ->
-      Gui.choose_file `SAVE  @@ fun name ->
+      Gui.Dialogs.choose_file `SAVE  @@ fun name ->
         if Sys.file_exists name then
-          Gui.confirm ~title:"Overwrite ?"
+          Gui.Dialogs.confirm ~title:"Overwrite ?"
             (Printf.sprintf "File %S already exists. Overwrite ?" name)
           @@ save_to_file name
         else
           save_to_file name ()
-  in
-  ignore @@ Gui.button_save_as#connect#clicked ~callback:save_to_file_ask
-  ;
-  ignore @@ Gui.button_save#connect#clicked
-    ~callback:(fun () -> save_to_file_ask ?name:(Buffer.filename !current_buffer) ())
-  ;
+
   let check_before_quit _ =
     Buffer.is_modified !current_buffer &&
-      Gui.quit_dialog (Buffer.filename !current_buffer) @@ fun () ->
+      Gui.Dialogs.quit (Buffer.filename !current_buffer) @@ fun () ->
         save_to_file_ask ?name:(Buffer.filename !current_buffer) ();
         Buffer.is_modified !current_buffer
-  in
-  ignore @@ Gui.button_quit#connect#clicked
-    ~callback:(fun () ->
-      if not (check_before_quit ()) then Gui.main_window#destroy ());
-  ignore @@ Gui.main_window#event#connect#delete
-    ~callback:check_before_quit;
-  ignore @@ Gui.main_window#connect#destroy
-    ~callback:GMain.quit
+end
+
+let _bind_actions =
+  Gui.Controls.bind `OPEN Actions.load_dialog;
+  Gui.Controls.bind `SAVE_AS Actions.save_to_file_ask;
+  Gui.Controls.bind `SAVE @@ (fun () ->
+    Actions.save_to_file_ask ?name:(Buffer.filename !current_buffer) ());
+  Gui.Controls.bind `QUIT @@ (fun () ->
+    if not (Actions.check_before_quit ()) then Gui.main_window#destroy ())
 
 let init_top_view () =
   let top_view = Gui.open_toplevel_view toplevel_buffer in
@@ -165,10 +160,11 @@ let init_top_view () =
     toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
     Top.query top phrase
   in
-  ignore @@ Gui.button_eval#connect#clicked ~callback:topeval
+  Gui.Controls.bind `EXECUTE topeval;
+  Gui.Controls.bind `STOP @@ fun () -> Top.stop top
 
 let _ =
   Tools.debug "Init done, showing main window";
-  if Array.length (Sys.argv) > 1 then load_file Sys.argv.(1);
+  if Array.length (Sys.argv) > 1 then Actions.load_file Sys.argv.(1);
   init_top_view ();
   protect ~loop:true GMain.main ()

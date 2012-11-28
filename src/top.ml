@@ -24,7 +24,7 @@ let start () =
   let response_fdescr,top_stdout = Unix.pipe() in
   let error_fdescr,top_stderr = Unix.pipe() in
   let ocaml_pid =
-    Unix.create_process "ocaml" [||] top_stdin top_stdout top_stderr
+    Unix.create_process "ocaml" [|"-noprompt";"-nopromptcont"|] top_stdin top_stdout top_stderr
   in
   Tools.debug "Toplevel started";
   Unix.set_nonblock response_fdescr;
