@@ -86,8 +86,19 @@ let query t q =
 let response t =
   gread t.response_channel
 
-(* Doesn't work. And no signals in Windows... *)
-let stop t =
-  output_char t.query_channel '';
-  flush t
+(* Doesn't work. And no signals in Windows...
+   This is likely to need quite a bit of work. Some references:
+   - https://sympa.inria.fr/sympa/arc/caml-list/2005-06/msg00261.html (but the link to the source is broken !)
+   - http://stackoverflow.com/questions/813086/can-i-send-a-ctrl-c-sigint-to-an-application-on-windows (this really looks overly complicated, needing an intermediate process just intended to kill itself with the target ?)
+   this stub from stackoverflow might work:
 
+void SendControlC(int pid)
+{
+    AttachConsole(pid); // attach to process console
+    SetConsoleCtrlHandler(NULL, TRUE); // disable Control+C handling for our app
+    GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0); // generate Control+C event
+}
+*)
+let stop t =
+  output_char t.query_channel '';
+  flush t
