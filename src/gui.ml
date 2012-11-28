@@ -27,7 +27,7 @@ let (++>) builder obj =
   (builder ++< obj) ()
 
 module Controls = struct
-  type t = [ `OPEN | `SAVE | `SAVE_AS | `EXECUTE | `STOP | `QUIT ]
+  type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS | `EXECUTE | `STOP | `QUIT ]
 
   let to_string: t -> string = function
     | #GtkStock.id as id -> GtkStock.convert_id id
@@ -67,11 +67,14 @@ let main_window =
     +> (GPack.vbox
         ++< ((fun c o -> c#pack o),
              GButton.toolbar
+             +< mkbutton `NEW
              +< mkbutton `OPEN
              +< mkbutton `SAVE
              +< mkbutton `SAVE_AS
+             +< GButton.separator_tool_item ()
              +< mkbutton `EXECUTE
              +< mkbutton `STOP
+             +< GButton.separator_tool_item ()
              +> mkbutton `QUIT)
         +> (GPack.hbox
             +< main_view

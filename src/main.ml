@@ -40,7 +40,7 @@ module Buffer = struct
     let gbuffer =
       if not (Glib.Utf8.validate contents) then
         Tools.recover_error
-          ("Could not open file %S because it contains invalid utf-8 "
+          ("Could not open file %s because it contains invalid utf-8 "
            ^^ "characters. Please fix it or choose another file")
           (match name with Some n -> n | None -> "<unnamed>");
       GSourceView2.source_buffer
@@ -101,16 +101,18 @@ module Actions = struct
       let buf = Buffer.create ~name ~contents Gui.open_text_view in
       current_buffer := buf
 
-  let load_dialog () =
-    let dialog () = Gui.Dialogs.choose_file `OPEN load_file in
+  let confirm_discard k =
     if Buffer.is_modified !current_buffer then
       Gui.Dialogs.confirm ~title:"Please confirm"
-        (Printf.sprintf "Discard your changes to %S ?"
+        (Printf.sprintf "Discard your changes to %s ?"
          @@ Buffer.filename_default
            ~default:"the current file" !current_buffer)
-      @@ dialog
-    else
-      dialog ()
+      @@ k
+    else k ()
+
+  let load_dialog () =
+    confirm_discard @@ fun () ->
+      Gui.Dialogs.choose_file `OPEN load_file
 
   let save_to_file name () =
     let contents = Buffer.contents !current_buffer in
@@ -124,10 +126,14 @@ module Actions = struct
       Gui.Dialogs.choose_file `SAVE  @@ fun name ->
         if Sys.file_exists name then
           Gui.Dialogs.confirm ~title:"Overwrite ?"
-            (Printf.sprintf "File %S already exists. Overwrite ?" name)
+            (Printf.sprintf "File %s already exists. Overwrite ?" name)
           @@ save_to_file name
         else
           save_to_file name ()
+
+  let new_empty () =
+    confirm_discard @@ fun () ->
+      current_buffer := Buffer.create Gui.open_text_view
 
   let check_before_quit _ =
     Buffer.is_modified !current_buffer &&
@@ -137,6 +143,7 @@ module Actions = struct
 end
 
 let _bind_actions =
+  Gui.Controls.bind `NEW Actions.new_empty;
   Gui.Controls.bind `OPEN Actions.load_dialog;
   Gui.Controls.bind `SAVE_AS Actions.save_to_file_ask;
   Gui.Controls.bind `SAVE @@ (fun () ->
