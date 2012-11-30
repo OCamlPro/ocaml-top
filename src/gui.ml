@@ -46,7 +46,7 @@ module Controls = struct
   let bind command action =
     ignore @@ (signal command)#connect#activate ~callback:action
 
-  let trigger command () =
+  let trigger command =
     ignore @@ (signal command)#activate ()
 end
 
@@ -56,10 +56,20 @@ let main_view =
 let toplevel_view =
   GBin.scrolled_window ~vpolicy:`AUTOMATIC ~hpolicy:`AUTOMATIC ()
 
+type shortcut_mods = [ `CONTROL | `SHIFT | `META | `SUPER | `HYPER ]
+let shortcuts = [
+  ([`CONTROL], GdkKeysyms._n),      `NEW;
+  ([`CONTROL], GdkKeysyms._o),      `OPEN;
+  ([`CONTROL], GdkKeysyms._s),      `SAVE;
+  ([`CONTROL], GdkKeysyms._e),      `EXECUTE;
+  ([],         GdkKeysyms._Escape), `STOP;
+  ([`CONTROL], GdkKeysyms._q),      `QUIT;
+]
+
 let main_window =
   let mkbutton ctrl =
     let btn = GButton.tool_button ~stock:(ctrl: Controls.t :> GtkStock.id) () in
-    ignore @@ btn#connect#clicked ~callback:(Controls.trigger ctrl);
+    ignore @@ btn#connect#clicked ~callback:(fun () -> Controls.trigger ctrl);
     btn
   in
   let win =
@@ -81,8 +91,18 @@ let main_window =
             +> toplevel_view))
   in
   ignore @@ win#event#connect#delete
-    ~callback:(fun _ -> Controls.trigger `QUIT (); true);
+    ~callback:(fun _ -> Controls.trigger `QUIT; true);
   ignore @@ win#connect#destroy ~callback:GMain.quit;
+  ignore @@ win#event#connect#key_press ~callback:(fun ev ->
+    Tools.debug "Key press: %s" @@ GdkEvent.Key.string ev;
+    let state = GdkEvent.Key.state ev
+      |> List.filter (function #shortcut_mods -> true | _ -> false)
+    in
+    try
+      Controls.trigger @@ List.assoc (state, GdkEvent.Key.keyval ev) shortcuts;
+      false
+    with
+      | Not_found -> false);
   win
 
 let open_text_view buffer =
