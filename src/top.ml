@@ -39,42 +39,52 @@ let start () =
 (* lablgtk's interface for Glib reading is weird: different and more limited
    than the original Glib one. This function just reads what it can from the
    channel and returns it as a string. *)
-let gread ch =
-  Tools.debug "Reading output from ocaml";
+let gread =
   let len = 4096 in
   let buf = Buffer.create len in
   let str = String.create len in
-  let rec try_read () =
-    try
-      let n = GIO.read_chars ch ~buf:str ~pos:0 ~len in
-      if n > 0 then
-        (Buffer.add_substring buf str 0 n; try_read())
-    with
-    | Unix.Unix_error (Unix.EAGAIN,_,_)
-    | Unix.Unix_error (Unix.EWOULDBLOCK,_,_) ->
-      ()
-    (* Why, WHY do they wrap this in a string ?? *)
-    | Glib.GError s as exc ->
-      let i = String.index s ' ' in
-      let e = String.sub s (i+1) (String.length s - i - 1) in
-      match e with
-      | "G_IO_STATUS_AGAIN" -> ()
-      | _ ->
-        Tools.debug "Glib io error in gread: «%s»" s;
-        raise exc
-  in
-  try_read ();
-  (* todo: sanitize the contents (if the user is allowed i/o from the ocaml
-     program): may be invalid utf-8 *)
-  Buffer.contents buf
+  fun ch ->
+    let rec try_read () =
+      try
+        let n = GIO.read_chars ch ~buf:str ~pos:0 ~len in
+        (* Optim-todo: we may skip the buffer if only one read was enough (most
+           of the time) *)
+        if n > 0 then
+          (Buffer.add_substring buf str 0 n; try_read())
+      with
+      | Unix.Unix_error (Unix.EAGAIN,_,_)
+      | Unix.Unix_error (Unix.EWOULDBLOCK,_,_) ->
+        ()
+      (* Why, WHY do they wrap this in a string ?? *)
+      | Glib.GError s as exc ->
+        let i = String.index s ' ' in
+        let e = String.sub s (i+1) (String.length s - i - 1) in
+        match e with
+        | "G_IO_STATUS_AGAIN" -> ()
+        | _ ->
+          Tools.debug "Glib io error in gread: «%s»" s;
+          raise exc
+    in
+    try_read ();
+    (* todo: sanitize the contents (if the user is allowed i/o from the ocaml
+       program): may be invalid utf-8 *)
+    Buffer.contents buf
 
 let watch t f =
-  let _id =
-    GIO.add_watch t.response_channel ~cond:[ `IN ] ~prio:10 ~callback:(fun _ ->
-      f @@ gread t.response_channel;
-      true
-    )
-  in ()
+  (* delayed watch to avoid triggering the callback repeatedly for single words
+     if ocaml spams its output *)
+  let rec callback1 _ =
+    ignore @@ Glib.Timeout.add ~ms:50 ~callback:callback2;
+    false
+  and callback2 _ =
+    f @@ gread t.response_channel;
+    delayed_watch ();
+    false
+  and delayed_watch () =
+    ignore @@
+      GIO.add_watch t.response_channel ~cond:[ `IN ] ~prio:20 ~callback:callback1;
+  in
+  delayed_watch ()
 
 let flush t = flush t.query_channel
 
