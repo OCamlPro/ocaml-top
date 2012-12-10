@@ -68,7 +68,9 @@ let gread =
     try_read ();
     (* todo: sanitize the contents (if the user is allowed i/o from the ocaml
        program): may be invalid utf-8 *)
-    Buffer.contents buf
+    let ret = Buffer.contents buf in
+    Buffer.clear buf;
+    ret
 
 let watch t f =
   (* delayed watch to avoid triggering the callback repeatedly for single words
