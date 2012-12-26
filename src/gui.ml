@@ -78,12 +78,14 @@ let main_window =
         |> as_widget;
       ]
       |> add [
-        GPack.hbox ()
+        GPack.paned `HORIZONTAL ()
         |> add [
-          main_view;
-          toplevel_view;
-        ]
-      ]
+          GBin.frame ~label:"Source editor" ~shadow_type:`IN ()
+          |> add [ main_view ];
+          GBin.frame ~label:"OCaml interaction" ~shadow_type:`IN ()
+          |> add [ toplevel_view ];
+        ];
+      ];
     ]
   in
   ignore @@ win#event#connect#delete
