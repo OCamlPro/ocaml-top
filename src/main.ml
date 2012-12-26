@@ -35,6 +35,24 @@ module Buffer = struct
   let set_filename buf name =
     buf.filename <- Some name
 
+  module Tags = struct
+    let phrase =
+      Tools.debug "phrase";
+      let t = GText.tag ~name:"phrase" () in
+      t#set_property (`FOREGROUND "grey80");
+      (* t#set_property (`BACKGROUND "black"); *)
+      (* property paragraph-background colors entire line, but it
+         was introduced in gtk 2.8 and isn't yet in lablgtk... *)
+      t#set_property (`INDENT 16); (* fixme: 2*font-width *)
+      t
+
+    let table =
+      Tools.debug "table";
+      let table = GText.tag_table () in
+      table#add phrase#as_tag;
+      table
+  end
+
   let create ?name ?(contents="")
       (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
     let gbuffer =
@@ -49,6 +67,7 @@ module Buffer = struct
         ?style_scheme:GSourceView_params.style
         ~highlight_matching_brackets:true
         ~highlight_syntax:true
+        ~tag_table:Tags.table
         ()
     in
     (* workaround: if we don't do this, loading of the file can be undone *)
@@ -80,6 +99,7 @@ let toplevel_buffer =
     ~highlight_matching_brackets:true
     ~highlight_syntax:true
     ?undo_manager:None
+    ~tag_table:Buffer.Tags.table
     ()
 
 let rec protect ?(loop=false) f x =
@@ -146,9 +166,9 @@ let _bind_actions =
   Gui.Controls.bind `NEW Actions.new_empty;
   Gui.Controls.bind `OPEN Actions.load_dialog;
   Gui.Controls.bind `SAVE_AS Actions.save_to_file_ask;
-  Gui.Controls.bind `SAVE @@ (fun () ->
+  Gui.Controls.bind `SAVE (fun () ->
     Actions.save_to_file_ask ?name:(Buffer.filename !current_buffer) ());
-  Gui.Controls.bind `QUIT @@ (fun () ->
+  Gui.Controls.bind `QUIT (fun () ->
     if not (Actions.check_before_quit ()) then Gui.main_window#destroy ())
 
 let init_top_view () =
@@ -164,7 +184,14 @@ let init_top_view () =
       | Some p -> p
       | None -> Buffer.contents !current_buffer
     in
+    toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n# ";
+    toplevel_buffer#insert
+      ~iter:toplevel_buffer#end_iter
+      ~tags:[Buffer.Tags.phrase]
+      phrase;
     toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
+    if phrase.[String.length phrase - 1] <> '\n' then
+      toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
     Top.query top phrase
   in
   Gui.Controls.bind `EXECUTE topeval;
@@ -174,4 +201,5 @@ let _ =
   Tools.debug "Init done, showing main window";
   if Array.length (Sys.argv) > 1 then Actions.load_file Sys.argv.(1);
   init_top_view ();
+  Gui.main_window#show();
   protect ~loop:true GMain.main ()

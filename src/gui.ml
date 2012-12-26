@@ -23,6 +23,7 @@ module Controls = struct
     ignore @@ (signal command)#connect#activate ~callback:action
 
   let trigger command =
+    Tools.debug "Event triggered: %s" @@ to_string command;
     ignore @@ (signal command)#activate ()
 end
 
@@ -59,7 +60,7 @@ let main_window =
     (btn :> GObj.widget)
   in
   let win =
-    GWindow.window ~title:"ocp-simple-edit" ~height:600 ~width:800 ~show:true ()
+    GWindow.window ~title:"ocp-simple-edit" ~height:600 (* ~width:800 ~show:true *) ()
     |> add [
       GPack.vbox ()
       |> pack [
@@ -118,8 +119,8 @@ let open_text_view buffer =
   in
   List.iter main_view#remove main_view#children;
   main_view#add (view :> GObj.widget);
-  view#misc#modify_base [`NORMAL, `NAME "grey20"];
-  view#misc#modify_text [`NORMAL, `NAME "wheat"];
+  (* view#misc#modify_base [`NORMAL, `NAME "grey20"]; *)
+  (* view#misc#modify_text [`NORMAL, `NAME "wheat"]; *)
   view#misc#modify_font font;
   view#misc#set_size_chars ~width:81 ();
   view#misc#grab_focus ();
@@ -142,8 +143,8 @@ let open_toplevel_view top_buf =
       ()
   in
   toplevel_view#add (view :> GObj.widget);
-  view#misc#modify_base [`NORMAL, `NAME "grey20"];
-  view#misc#modify_text [`NORMAL, `NAME "wheat"];
+  (* view#misc#modify_base [`NORMAL, `NAME "grey20"]; *)
+  (* view#misc#modify_text [`NORMAL, `NAME "wheat"]; *)
   view#misc#modify_font font;
   view#misc#set_size_chars ~width:81 ();
   view

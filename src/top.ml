@@ -8,13 +8,14 @@ open Tools.Ops
 
 type status =
 | Ready
-| Computing of string
+| Busy of string
 
 type t = {
   pid: int;
   query_channel: out_channel;
   response_channel: GIO.channel;
   error_channel: GIO.channel;
+  mutable status: status;
 }
 
 
@@ -23,7 +24,8 @@ let start () =
   let response_fdescr,top_stdout = Unix.pipe() in
   let error_fdescr,top_stderr = Unix.pipe() in
   let ocaml_pid =
-    Unix.create_process "ocaml" [|"ocaml";"-noprompt";"-nopromptcont"|]
+    Unix.create_process_env "ocaml" [|"ocaml";"-nopromptcont"|]
+      [| "PATH="^Sys.getenv "PATH"|] (* unset the TERM variable *)
       top_stdin top_stdout top_stderr
   in
   Tools.debug "Toplevel started";
@@ -33,6 +35,7 @@ let start () =
     query_channel = Unix.out_channel_of_descr query_fdescr;
     response_channel = GIO.channel_of_descr response_fdescr;
     error_channel = GIO.channel_of_descr error_fdescr;
+    status = Ready;
   } in
   t
 
@@ -72,6 +75,14 @@ let gread =
     Buffer.clear buf;
     ret
 
+let filter_top_output t str =
+  let len = String.length str in
+  if len >= 1 && String.sub str (len - 2) 2 = "# " then
+    (t.status <- Ready;
+     String.sub str 0 (len - 2))
+  else
+    str
+
 let watch t f =
   (* delayed watch to avoid triggering the callback repeatedly for single words
      if ocaml spams its output *)
@@ -79,7 +90,7 @@ let watch t f =
     ignore @@ Glib.Timeout.add ~ms:50 ~callback:callback2;
     false
   and callback2 _ =
-    f @@ gread t.response_channel;
+    f @@ filter_top_output t @@ gread t.response_channel;
     delayed_watch ();
     false
   and delayed_watch () =
@@ -91,9 +102,15 @@ let watch t f =
 let flush t = flush t.query_channel
 
 let query t q =
+  let q = String.trim q in
+  let len = String.length q in
   output_string t.query_channel q;
-  output_string t.query_channel ";;\n";
-  flush t
+  if len >= 2 && String.sub q (len-2) 2 = ";;" then
+    output_string t.query_channel "\n"
+  else
+    output_string t.query_channel ";;\n";
+  flush t;
+  t.status <- Busy q
 
 let response t =
   gread t.response_channel
@@ -104,13 +121,16 @@ let response t =
    - http://stackoverflow.com/questions/813086/can-i-send-a-ctrl-c-sigint-to-an-application-on-windows (this really looks overly complicated, needing an intermediate process just intended to kill itself with the target ?)
    this stub from stackoverflow might work:
 
-void SendControlC(int pid)
-{
-    AttachConsole(pid); // attach to process console
-    SetConsoleCtrlHandler(NULL, TRUE); // disable Control+C handling for our app
-    GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0); // generate Control+C event
-}
+   void SendControlC(int pid)
+   {
+   AttachConsole(pid); // attach to process console
+   SetConsoleCtrlHandler(NULL, TRUE); // disable Control+C handling for our app
+   GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0); // generate Control+C event
+   }
 *)
 let stop t =
-  output_char t.query_channel '';
-  flush t
+  flush t;
+  (* FIXME FOR WINDOWS *)
+  Unix.kill t.pid 2 (* SIGINT *)
+  (* we'd like to flush the output of ocaml... but I couldn't find a way to do
+     that in lablgtk+glib *)
