@@ -2,30 +2,6 @@ open Tools.Ops
 
 let _ = GtkMain.Main.init()
 
-(* Some operators to make the layout building look more functional and
-   tree-like *)
-(* Apply an object builder, add a widget, and return the same interface as the
-   object builder so that it can be chained *)
-let (+<) builder obj =
-  let o = builder () in
-  o#add (obj :> GObj.widget);
-  fun () -> o
-
-(* The same but closed: returns the object *)
-let (+>) builder obj =
-  (builder +< obj) ()
-
-(* The same as (+<), but for when you need to specify the packing function used
-   to add the widget to the object *)
-let (++<) builder (pack, obj) =
-  let o = builder () in
-  (pack o) (obj :> GObj.widget);
-  fun () -> o
-
-(* Same as (++<) but closed *)
-let (++>) builder obj =
-  (builder ++< obj) ()
-
 module Controls = struct
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS | `EXECUTE | `STOP | `QUIT ]
 
@@ -66,35 +42,54 @@ let shortcuts = [
   ([`CONTROL], GdkKeysyms._q),      `QUIT;
 ]
 
+let add objs container =
+  List.iter (fun o -> container#add (o :> GObj.widget)) objs;
+  container
+
+let pack objs (container: GPack.box) =
+  List.iter (fun o -> container#pack o) objs;
+  container
+
+let as_widget o = (o :> GObj.widget)
+
 let main_window =
   let mkbutton ctrl =
     let btn = GButton.tool_button ~stock:(ctrl: Controls.t :> GtkStock.id) () in
     ignore @@ btn#connect#clicked ~callback:(fun () -> Controls.trigger ctrl);
-    btn
+    (btn :> GObj.widget)
   in
   let win =
-    GWindow.window ~title:"ocp-edit-simple" ~height:600 ~width:800 ~show:true
-    +> (GPack.vbox
-        ++< ((fun c o -> c#pack o),
-             GButton.toolbar
-             +< mkbutton `NEW
-             +< mkbutton `OPEN
-             +< mkbutton `SAVE
-             +< mkbutton `SAVE_AS
-             +< GButton.separator_tool_item ()
-             +< mkbutton `EXECUTE
-             +< mkbutton `STOP
-             +< GButton.separator_tool_item ()
-             +> mkbutton `QUIT)
-        +> (GPack.hbox
-            +< main_view
-            +> toplevel_view))
+    GWindow.window ~title:"ocp-simple-edit" ~height:600 ~width:800 ~show:true ()
+    |> add [
+      GPack.vbox ()
+      |> pack [
+        GButton.toolbar ()
+        |> add [
+          mkbutton `NEW;
+          mkbutton `OPEN;
+          mkbutton `SAVE;
+          mkbutton `SAVE_AS;
+          (GButton.separator_tool_item () :> GObj.widget);
+          mkbutton `EXECUTE;
+          mkbutton `STOP;
+          (GButton.separator_tool_item () :> GObj.widget);
+          mkbutton `QUIT;
+        ]
+        |> as_widget;
+      ]
+      |> add [
+        GPack.hbox ()
+        |> add [
+          main_view;
+          toplevel_view;
+        ]
+      ]
+    ]
   in
   ignore @@ win#event#connect#delete
     ~callback:(fun _ -> Controls.trigger `QUIT; true);
   ignore @@ win#connect#destroy ~callback:GMain.quit;
   ignore @@ win#event#connect#key_press ~callback:(fun ev ->
-    Tools.debug "Key press: %s" @@ GdkEvent.Key.string ev;
     let state = GdkEvent.Key.state ev
       |> List.filter (function #shortcut_mods -> true | _ -> false)
     in
