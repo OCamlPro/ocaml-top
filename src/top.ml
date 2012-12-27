@@ -23,9 +23,17 @@ let start () =
   let top_stdin,query_fdescr = Unix.pipe() in
   let response_fdescr,top_stdout = Unix.pipe() in
   let error_fdescr,top_stderr = Unix.pipe() in
+  let env = (* filter TERM out of the environment *)
+    Unix.environment
+    |> Array.fold_left
+        (fun acc x ->
+          if String.length x >=5 && String.sub x 0 5 = "TERM=" then acc
+          else x::acc)
+    |> List.rev
+    |> Array.of_list
+  in
   let ocaml_pid =
-    Unix.create_process_env "ocaml" [|"ocaml";"-nopromptcont"|]
-      [| "PATH="^Sys.getenv "PATH"|] (* unset the TERM variable *)
+    Unix.create_process_env "ocaml" [|"ocaml";"-nopromptcont"|] env
       top_stdin top_stdout top_stderr
   in
   Tools.debug "Toplevel started";
