@@ -13,8 +13,8 @@ type status =
 type t = {
   pid: int;
   query_channel: out_channel;
-  response_channel: GIO.channel;
-  error_channel: GIO.channel;
+  response_channel: string Event.channel;
+  (* error_channel: GIO.channel; *)
   mutable status: status;
 }
 
@@ -24,11 +24,11 @@ let start () =
   let response_fdescr,top_stdout = Unix.pipe() in
   let error_fdescr,top_stderr = Unix.pipe() in
   let env = (* filter TERM out of the environment *)
-    Unix.environment
+    Unix.environment ()
     |> Array.fold_left
         (fun acc x ->
-          if String.length x >=5 && String.sub x 0 5 = "TERM=" then acc
-          else x::acc)
+          if String.length x >= 5 && String.sub x 0 5 = "TERM=" then acc
+          else x::acc) []
     |> List.rev
     |> Array.of_list
   in
@@ -37,51 +37,31 @@ let start () =
       top_stdin top_stdout top_stderr
   in
   Tools.debug "Toplevel started";
-  Unix.set_nonblock response_fdescr;
+  (* now set up reading thread *)
+  let callback evt_channel =
+    let buf_len = 4096 in
+    let buf = String.create buf_len in
+    let rec loop () =
+      let nread = Unix.read response_fdescr buf 0 buf_len in
+      (* GMain.Event.propagate: signal we got some input *)
+      let evt = Event.send evt_channel (String.sub buf 0 nread) in
+      Tools.debug "Incoming response from ocaml";
+      Event.sync evt;
+      loop ()
+    in
+    loop ()
+  in
+  let evt_channel: string Event.channel = Event.new_channel () in
+  let _reading_thread = Thread.create callback evt_channel in
+  (* Build the top structure *)
   let t = {
     pid = ocaml_pid;
     query_channel = Unix.out_channel_of_descr query_fdescr;
-    response_channel = GIO.channel_of_descr response_fdescr;
-    error_channel = GIO.channel_of_descr error_fdescr;
-    status = Ready;
+    response_channel = evt_channel;
+    (* error_channel = GIO.channel_of_descr error_fdescr; *)
+    status = Busy "init";
   } in
   t
-
-(* lablgtk's interface for Glib reading is weird: different and more limited
-   than the original Glib one. This function just reads what it can from the
-   channel and returns it as a string. *)
-let gread =
-  let len = 4096 in
-  let buf = Buffer.create len in
-  let str = String.create len in
-  fun ch ->
-    let rec try_read () =
-      try
-        let n = GIO.read_chars ch ~buf:str ~pos:0 ~len in
-        (* Optim-todo: we may skip the buffer if only one read was enough (most
-           of the time) *)
-        if n > 0 then
-          (Buffer.add_substring buf str 0 n; try_read())
-      with
-      | Unix.Unix_error (Unix.EAGAIN,_,_)
-      | Unix.Unix_error (Unix.EWOULDBLOCK,_,_) ->
-        ()
-      (* Why, WHY do they wrap this in a string ?? *)
-      | Glib.GError s as exc ->
-        let i = String.index s ' ' in
-        let e = String.sub s (i+1) (String.length s - i - 1) in
-        match e with
-        | "G_IO_STATUS_AGAIN" -> ()
-        | _ ->
-          Tools.debug "Glib io error in gread: «%s»" s;
-          raise exc
-    in
-    try_read ();
-    (* todo: sanitize the contents (if the user is allowed i/o from the ocaml
-       program): may be invalid utf-8 *)
-    let ret = Buffer.contents buf in
-    Buffer.clear buf;
-    ret
 
 let filter_top_output t str =
   let len = String.length str in
@@ -94,18 +74,13 @@ let filter_top_output t str =
 let watch t f =
   (* delayed watch to avoid triggering the callback repeatedly for single words
      if ocaml spams its output *)
-  let rec callback1 _ =
-    ignore @@ Glib.Timeout.add ~ms:50 ~callback:callback2;
-    false
-  and callback2 _ =
-    f @@ filter_top_output t @@ gread t.response_channel;
-    delayed_watch ();
-    false
-  and delayed_watch () =
-    ignore @@
-      GIO.add_watch t.response_channel ~cond:[ `IN ] ~prio:20 ~callback:callback1;
+  let callback () =
+    match Event.poll (Event.receive t.response_channel) with
+    | None -> true
+    | Some s ->
+      f @@ filter_top_output t s; true
   in
-  delayed_watch ()
+  ignore @@ Glib.Timeout.add ~ms:50 ~callback
 
 let flush t = flush t.query_channel
 
@@ -119,9 +94,6 @@ let query t q =
     output_string t.query_channel ";;\n";
   flush t;
   t.status <- Busy q
-
-let response t =
-  gread t.response_channel
 
 (* Doesn't work. And no signals in Windows...
    This is likely to need quite a bit of work. Some references:

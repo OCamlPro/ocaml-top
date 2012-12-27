@@ -9,7 +9,7 @@ let debug_enabled =
 
 let debug =
   if debug_enabled then
-    fun fmt -> Printf.eprintf ("[34m"^^fmt^^"[m\n%!")
+    fun fmt -> Printf.eprintf ("\027[35m"^^fmt^^"\027[m\n%!")
   else
     fun fmt -> Printf.ifprintf stderr fmt
 
