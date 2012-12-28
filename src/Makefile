@@ -1,8 +1,19 @@
-LIBS = unix.cma threads.cma lablgtk.cma
 SRC = tools.ml top.ml gui.mli gui.ml main.ml
+OCAMLFIND_OPTS = -package unix,lablgtk2,lablgtk2.sourceview2 -linkpkg -thread -g
 
-byte: $(SRC)
-	ocamlfind ocamlc -package unix,lablgtk2 -thread $(LIBS) $(SRC) -o byte
+UNAME := $(shell uname)
+ifeq (WIN,$(findstring WIN,$(UNAME)))
+  EXEEXT := .exe
+else
+  EXEEXT :=
+endif
 
-native: $(SRC)
-	ocamlfind ocamlopt -package unix,lablgtk2 -thread $(LIBS:cma=cmxa) $(SRC) -o native
+byte$(EXEEXT): $(SRC)
+	ocamlfind ocamlc $(OCAMLFIND_OPTS) $(SRC) -o $@
+
+native$(EXEEXT): $(SRC)
+	ocamlfind ocamlopt $(OCAMLFIND_OPTS) $(SRC) -o $@
+
+.PHONY: clean
+clean:
+	rm -f *.cm* byte$(EXEEXT) native$(EXEEXT)
