@@ -110,12 +110,8 @@ let open_text_view buffer =
   Tools.debug "open text view";
   let font = Pango.Font.from_string "Monospace 10" in
   let view =
-    GSourceView2.source_view
-      ~source_buffer:buffer
-      ~auto_indent:true
-      ~highlight_current_line:true
-      ~indent_on_tab:true
-      ~indent_width:2
+    GText.view
+      ~buffer:buffer
       ~accepts_tab:false
       ~wrap_mode:`CHAR
       ()
@@ -133,12 +129,8 @@ let open_toplevel_view top_buf =
   Tools.debug "open top view";
   let font = Pango.Font.from_string "Monospace 10" in
   let view =
-    GSourceView2.source_view
-      ~source_buffer:top_buf
-      ~auto_indent:false
-      ~highlight_current_line:false
-      ~indent_on_tab:false
-      ~indent_width:2
+    GText.view
+      ~buffer:top_buf
       ~accepts_tab:false
       ~wrap_mode:`CHAR
       ~cursor_visible:false

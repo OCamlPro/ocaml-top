@@ -3,20 +3,11 @@ open Tools.Ops
 let set_window_title fmt =
   Printf.ksprintf Gui.main_window#set_title (fmt ^^ " - ocp-edit-simple")
 
-module GSourceView_params = struct
-  let syntax =
-    (GSourceView2.source_language_manager ~default:true)
-      #language "objective-caml"
-  let style =
-    (GSourceView2.source_style_scheme_manager ~default:true)
-      #style_scheme "cobalt"
-end
-
 module Buffer = struct
   type t = {
     mutable filename: string option;
-    gbuffer: GSourceView2.source_buffer;
-    view: GSourceView2.source_view;
+    gbuffer: GText.buffer;
+    view: GText.view;
   }
 
   let contents buf = buf.gbuffer#get_text ()
@@ -54,24 +45,19 @@ module Buffer = struct
   end
 
   let create ?name ?(contents="")
-      (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
+      (mkview: GText.buffer -> GText.view) =
     let gbuffer =
       if not (Glib.Utf8.validate contents) then
         Tools.recover_error
           ("Could not open file %s because it contains invalid utf-8 "
            ^^ "characters. Please fix it or choose another file")
           (match name with Some n -> n | None -> "<unnamed>");
-      GSourceView2.source_buffer
+      GText.buffer
         ~text:contents
-        ?language:GSourceView_params.syntax
-        ?style_scheme:GSourceView_params.style
-        ~highlight_matching_brackets:true
-        ~highlight_syntax:true
         ~tag_table:Tags.table
         ()
     in
     (* workaround: if we don't do this, loading of the file can be undone *)
-    gbuffer#begin_not_undoable_action ();
     gbuffer#place_cursor ~where:gbuffer#start_iter;
     let view = mkview gbuffer in
     let t = { filename = name; gbuffer; view } in
@@ -79,7 +65,6 @@ module Buffer = struct
       set_window_title "%s%s" (filename_default t) @@
         if gbuffer#modified then "*" else "");
     unmodify t;
-    gbuffer#end_not_undoable_action ();
     t
 
   let get_selection buf =
@@ -93,12 +78,7 @@ end
 
 let current_buffer = ref (Buffer.create Gui.open_text_view)
 let toplevel_buffer =
-  GSourceView2.source_buffer
-    ?language:GSourceView_params.syntax
-    ?style_scheme:GSourceView_params.style
-    ~highlight_matching_brackets:true
-    ~highlight_syntax:true
-    ?undo_manager:None
+  GText.buffer
     ~tag_table:Buffer.Tags.table
     ()
 

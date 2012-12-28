@@ -19,6 +19,6 @@ end
 
 val main_window : GWindow.window
 
-val open_text_view : GSourceView2.source_buffer -> GSourceView2.source_view
+val open_text_view : GText.buffer -> GText.view
 
-val open_toplevel_view : GSourceView2.source_buffer -> GSourceView2.source_view
+val open_toplevel_view : GText.buffer -> GText.view

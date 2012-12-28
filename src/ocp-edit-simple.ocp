@@ -1,4 +1,4 @@
 begin program "ocp-edit-simple"
       files = [ "tools.ml" "top.ml" "gui.ml" "main.ml" ]
-      requires = [ "lablgtksourceview2" "lablgtk" "unix" "threads" ]
+      requires = [ "lablgtk" "unix" "threads" ]
 end
