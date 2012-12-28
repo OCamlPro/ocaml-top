@@ -60,7 +60,10 @@ let main_window =
     (btn :> GObj.widget)
   in
   let win =
-    GWindow.window ~title:"ocp-simple-edit" ~height:600 (* ~width:800 ~show:true *) ()
+    GWindow.window
+      ~title:"ocp-simple-edit"
+      ~height:600 ~allow_shrink:true (* ~width:800 ~show:true *)
+      ()
     |> add [
       GPack.vbox ()
       |> pack [

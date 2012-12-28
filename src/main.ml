@@ -186,6 +186,7 @@ let init_top_view () =
     toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
     if phrase.[String.length phrase - 1] <> '\n' then
       toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
+    ignore @@ top_view#scroll_to_iter toplevel_buffer#end_iter;
     Top.query top phrase
   in
   let top_display response =
