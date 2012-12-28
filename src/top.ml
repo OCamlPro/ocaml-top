@@ -1,9 +1,3 @@
-(* We want non-blocking input and are stuck with the scheduler from Gtk (aka
-   main loop) here. So we can either go through Glib's IO, or spawn a thread for
-   polling. The former sounds simpler and safer, although lablGTK is lacking in
-   this area... *)
-module GIO = Glib.Io
-
 open Tools.Ops
 
 type status =
@@ -14,12 +8,21 @@ type t = {
   pid: int;
   query_channel: out_channel;
   response_channel: string Event.channel;
-  (* error_channel: GIO.channel; *)
+  (* error_channel ? *)
   mutable status: status;
 }
 
+let filter_top_output t str =
+  let len = String.length str in
+  if len >= 1 && String.sub str (len - 2) 2 = "# " then
+    (t.status <- Ready;
+     String.sub str 0 (len - 2))
+  else
+    str
 
-let start () =
+(* After some experiments, Glib IO through lablGtk didn't turn out well on
+   Windows: we read from the ocaml process manually with a dedicated thread *)
+let start schedule response_handler =
   let top_stdin,query_fdescr = Unix.pipe() in
   let response_fdescr,top_stdout = Unix.pipe() in
   let error_fdescr,top_stderr = Unix.pipe() in
@@ -38,49 +41,44 @@ let start () =
   in
   Tools.debug "Toplevel started";
   (* now set up reading thread *)
-  let callback evt_channel =
+  let main_thread = Thread.self () in
+  let callback t =
+    let evt_send s = Event.send t.response_channel s
+    and evt_receive =
+      Event.wrap (Event.receive t.response_channel) (filter_top_output t)
+    in
     let buf_len = 4096 in
     let buf = String.create buf_len in
     let rec loop () =
       let nread = Unix.read response_fdescr buf 0 buf_len in
-      (* GMain.Event.propagate: signal we got some input *)
-      let evt = Event.send evt_channel (String.sub buf 0 nread) in
-      Tools.debug "Incoming response from ocaml";
-      Event.sync evt;
-      loop ()
+      if nread > 0 then
+        let evt = evt_send (String.sub buf 0 nread) in
+        Tools.debug "Incoming response from ocaml";
+        schedule (fun () ->
+          assert (Thread.self () = main_thread);
+          (* The schedule function must push this code back to the main thread *)
+          Event.sync evt_receive |> response_handler);
+        Event.sync evt;
+        loop ()
+      else (* todo: handle ocaml termination *)
+        (Tools.debug "Error reading from the ocaml process";
+         loop())
     in
     loop ()
   in
-  let evt_channel: string Event.channel = Event.new_channel () in
-  let _reading_thread = Thread.create callback evt_channel in
   (* Build the top structure *)
   let t = {
     pid = ocaml_pid;
     query_channel = Unix.out_channel_of_descr query_fdescr;
-    response_channel = evt_channel;
-    (* error_channel = GIO.channel_of_descr error_fdescr; *)
+    response_channel = Event.new_channel ();
     status = Busy "init";
   } in
+  let _reading_thread = Thread.create callback t in
   t
 
-let filter_top_output t str =
-  let len = String.length str in
-  if len >= 1 && String.sub str (len - 2) 2 = "# " then
-    (t.status <- Ready;
-     String.sub str 0 (len - 2))
-  else
-    str
-
-let watch t f =
-  (* delayed watch to avoid triggering the callback repeatedly for single words
-     if ocaml spams its output *)
-  let callback () =
-    match Event.poll (Event.receive t.response_channel) with
-    | None -> true
-    | Some s ->
-      f @@ filter_top_output t s; true
-  in
-  ignore @@ Glib.Timeout.add ~ms:50 ~callback
+let response t =
+  Event.sync (Event.receive t.response_channel)
+  |> filter_top_output t
 
 let flush t = flush t.query_channel
 

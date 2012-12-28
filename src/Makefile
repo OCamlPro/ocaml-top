@@ -1,4 +1,4 @@
-SRC = tools.ml top.ml gui.mli gui.ml main.ml
+SRC = tools.ml top.mli top.ml gui.mli gui.ml main.ml
 OCAMLFIND_OPTS = -package unix,lablgtk2,lablgtk2.sourceview2 -linkpkg -thread -g
 
 UNAME := $(shell uname)

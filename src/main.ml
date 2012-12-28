@@ -173,13 +173,7 @@ let _bind_actions =
 
 let init_top_view () =
   let top_view = Gui.open_toplevel_view toplevel_buffer in
-  let top = Top.start () in
-  let top_display response =
-    toplevel_buffer#insert ~iter:toplevel_buffer#end_iter response;
-    top_view#scroll_to_iter toplevel_buffer#end_iter
-  in
-  Top.watch top top_display;
-  let topeval () =
+  let topeval top =
     let phrase = match Buffer.get_selection !current_buffer with
       | Some p -> p
       | None -> Buffer.contents !current_buffer
@@ -194,12 +188,18 @@ let init_top_view () =
       toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
     Top.query top phrase
   in
-  Gui.Controls.bind `EXECUTE topeval;
+  let top_display response =
+    toplevel_buffer#insert ~iter:toplevel_buffer#end_iter response;
+    ignore @@ top_view#scroll_to_iter toplevel_buffer#end_iter
+  in
+  let schedule f = GMain.Idle.add @@ fun () -> f (); false in
+  let top = Top.start schedule top_display in
+  Gui.Controls.bind `EXECUTE @@ fun () -> topeval top;
   Gui.Controls.bind `STOP @@ fun () -> Top.stop top
 
 let _ =
   Tools.debug "Init done, showing main window";
-  if Array.length (Sys.argv) > 1 then Actions.load_file Sys.argv.(1);
+  if Array.length Sys.argv > 1 then Actions.load_file Sys.argv.(1);
   init_top_view ();
   Gui.main_window#show();
   protect ~loop:true GMain.main ()
