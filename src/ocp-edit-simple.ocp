@@ -1,4 +1,12 @@
 begin program "ocp-edit-simple"
       files = [ "tools.ml" "top.ml" "gui.ml" "main.ml" ]
       requires = [ "lablgtksourceview2" "lablgtk" "unix" "threads" ]
+      link = [ "-thread" ]
+      comp = [ "-thread" ]
+end
+
+begin library "threads"
+     generated = true
+     dirname = [ "%{OCAMLLIB}%/threads" ]
+     has_byte = false
 end

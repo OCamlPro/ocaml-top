@@ -16,4 +16,4 @@ native$(EXEEXT): $(SRC)
 
 .PHONY: clean
 clean:
-	rm -f *.cm* byte$(EXEEXT) native$(EXEEXT)
+	rm -f *.o *.cm* byte$(EXEEXT) native$(EXEEXT)
