@@ -4,12 +4,14 @@ OCAMLFIND_OPTS = -package unix,lablgtk2,lablgtk2.sourceview2 -linkpkg -thread -g
 UNAME := $(shell uname)
 ifeq (WIN,$(findstring WIN,$(UNAME)))
   EXEEXT := .exe
+  SRC += sigint_win.c
 else
   EXEEXT :=
+  SRC += sigint_unix.c
 endif
 
 byte$(EXEEXT): $(SRC)
-	ocamlfind ocamlc $(OCAMLFIND_OPTS) $(SRC) -o $@
+	ocamlfind ocamlc -custom $(OCAMLFIND_OPTS) $(SRC) -o $@
 
 native$(EXEEXT): $(SRC)
 	ocamlfind ocamlopt $(OCAMLFIND_OPTS) $(SRC) -o $@

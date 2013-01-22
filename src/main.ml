@@ -191,12 +191,17 @@ let init_top_view () =
   in
   let top_display response =
     toplevel_buffer#insert ~iter:toplevel_buffer#end_iter response;
+    toplevel_buffer#place_cursor ~where:toplevel_buffer#end_iter;
     ignore @@ top_view#scroll_to_iter toplevel_buffer#end_iter
   in
   let schedule f = GMain.Idle.add @@ fun () -> f (); false in
   let top = Top.start schedule top_display in
-  Gui.Controls.bind `EXECUTE @@ fun () -> topeval top;
-  Gui.Controls.bind `STOP @@ fun () -> Top.stop top
+  let _exe =
+    Gui.Controls.bind `EXECUTE @@ fun () -> topeval top
+  in
+  let _stop =
+    Gui.Controls.bind `STOP @@ fun () -> Top.stop top
+  in ()
 
 let _ =
   Tools.debug "Init done, showing main window";

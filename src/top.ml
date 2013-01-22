@@ -106,9 +106,8 @@ let query t q =
    GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0); // generate Control+C event
    }
 *)
+external sigint : int -> unit = "send_sigint"
+
 let stop t =
   flush t;
-  (* FIXME FOR WINDOWS *)
-  Unix.kill t.pid 2 (* SIGINT *)
-  (* we'd like to flush the output of ocaml... but I couldn't find a way to do
-     that in lablgtk+glib *)
+  sigint t.pid
