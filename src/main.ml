@@ -37,7 +37,6 @@ module Buffer = struct
 
   module Tags = struct
     let phrase =
-      Tools.debug "phrase";
       let t = GText.tag ~name:"phrase" () in
       t#set_property (`FOREGROUND "grey80");
       (* t#set_property (`BACKGROUND "black"); *)
@@ -46,10 +45,22 @@ module Buffer = struct
       t#set_property (`INDENT 16); (* fixme: 2*font-width *)
       t
 
+    let stdout =
+      let t = GText.tag ~name:"stdout" () in
+      t#set_property (`FOREGROUND "yellow");
+      t
+
+    let invisible =
+      let t = GText.tag ~name:"invisible" () in
+      t#set_property (`INVISIBLE true);
+      t
+
     let table =
       Tools.debug "table";
       let table = GText.tag_table () in
       table#add phrase#as_tag;
+      table#add stdout#as_tag;
+      table#add invisible#as_tag;
       table
   end
 
@@ -173,35 +184,164 @@ let _bind_actions =
 
 let init_top_view () =
   let top_view = Gui.open_toplevel_view toplevel_buffer in
-  let topeval top =
-    let phrase = match Buffer.get_selection !current_buffer with
-      | Some p -> p
-      | None -> Buffer.contents !current_buffer
+  let stdout_mark, ocaml_mark, prompt_mark =
+    let create_top_mark () =
+      `MARK (toplevel_buffer#create_mark
+          toplevel_buffer#end_iter
+          ~left_gravity:false)
     in
-    toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n# ";
-    toplevel_buffer#insert
-      ~iter:toplevel_buffer#end_iter
-      ~tags:[Buffer.Tags.phrase]
-      phrase;
+    create_top_mark (), create_top_mark (), create_top_mark ()
+  in
+  ignore @@ toplevel_buffer#connect#changed ~callback:(fun () ->
+      ignore @@ top_view#scroll_mark_onscreen prompt_mark);
+  let replace_marks () =
     toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
-    if phrase.[String.length phrase - 1] <> '\n' then
-      toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n";
-    ignore @@ top_view#scroll_to_iter toplevel_buffer#end_iter;
-    Top.query top phrase
+    toplevel_buffer#move_mark stdout_mark
+      ~where:toplevel_buffer#end_iter#backward_char;
+    toplevel_buffer#insert ~iter:toplevel_buffer#end_iter
+      ~tags:[Buffer.Tags.invisible] " ";
+    toplevel_buffer#move_mark ocaml_mark
+      ~where:toplevel_buffer#end_iter#backward_char;
+    toplevel_buffer#move_mark prompt_mark
+      ~where:toplevel_buffer#end_iter;
   in
-  let top_display response =
-    toplevel_buffer#insert ~iter:toplevel_buffer#end_iter response;
-    toplevel_buffer#place_cursor ~where:toplevel_buffer#end_iter;
-    ignore @@ top_view#scroll_to_iter toplevel_buffer#end_iter
+  let insert_top ?tags mark text =
+    let iter = toplevel_buffer#get_iter_at_mark mark in
+    toplevel_buffer#insert ~iter ?tags text
   in
-  let schedule f = GMain.Idle.add @@ fun () -> f (); false in
-  let top = Top.start schedule top_display in
-  let _exe =
-    Gui.Controls.bind `EXECUTE @@ fun () -> topeval top
+  let display_top_query phrase =
+    (* toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n# "; *)
+    insert_top ~tags:[Buffer.Tags.phrase] prompt_mark phrase;
+    let phrase_len = String.length phrase in
+    if phrase_len > 0 && phrase.[phrase_len - 1] <> '\n' then
+      insert_top ~tags:[Buffer.Tags.phrase] prompt_mark "\n"
   in
-  let _stop =
-    Gui.Controls.bind `STOP @@ fun () -> Top.stop top
-  in ()
+  let display_stdout response =
+      let rec disp_lines = function
+        | [] -> ()
+        | line::rest ->
+            let offset =
+              (toplevel_buffer#get_iter_at_mark stdout_mark)#line_offset
+            in
+            let line =
+              if offset >= 1024 then ""
+              else if offset + String.length line <= 1024 then line
+              else
+                let s = String.sub line 0 (1024 - offset) in
+                String.blit "..." 0 s (1024 - offset - 3) 3;
+                s
+            in
+            insert_top ~tags:[Buffer.Tags.stdout] stdout_mark line;
+            if rest <> [] then
+              (insert_top ~tags:[Buffer.Tags.stdout] stdout_mark "\n";
+               disp_lines rest)
+      in
+      let delim = Str.regexp "\r?\n" in
+      let lines = Str.split_delim delim response in
+      disp_lines lines
+  in
+  let display_top_response response =
+    let rec disp_lines = function
+      | [] -> ()
+      | line::rest ->
+          if String.length line > 512 then failwith "topfail";
+          insert_top ocaml_mark line;
+          if rest <> [] then
+            (insert_top ocaml_mark "\n";
+             disp_lines rest)
+    in
+    let delim = Str.regexp "\r?\n" in
+    let lines = Str.split_delim delim response in
+    disp_lines lines
+  in
+  let handle_response response _buf _start_mark _end_mark =
+    (* TODO: parse and handle error messages *)
+    Tools.debug "Was supposed to parse and analyse %S" response
+  in
+  let topeval top =
+    let buf = !current_buffer.Buffer.gbuffer in
+    let rec get_phrases (start:GText.iter) (stop:GText.iter) =
+      match start#forward_search ~limit:stop ";;" with
+      | Some (a,b) ->
+          (buf#get_text ~start ~stop:a (),
+           `MARK (buf#create_mark start), `MARK (buf#create_mark a))
+          :: get_phrases b stop
+      | None ->
+          [buf#get_text ~start ~stop (),
+           `MARK (buf#create_mark start), `MARK (buf#create_mark stop)]
+    in
+    let rec eval_phrases = function
+      | [] -> ()
+      | (phrase,start_mark,stop_mark) :: rest ->
+          let trimmed = String.trim phrase in
+          if trimmed = "" then
+            (buf#delete_mark start_mark;
+             buf#delete_mark stop_mark;
+             eval_phrases rest)
+          else
+            (display_top_query trimmed;
+             replace_marks ();
+             Top.query top phrase @@ fun response ->
+               handle_response response buf start_mark stop_mark;
+               buf#delete_mark start_mark; (* really, not the Gc's job ? *)
+               buf#delete_mark stop_mark;
+               eval_phrases rest)
+    in
+    let start, stop =
+      if buf#has_selection then buf#selection_bounds
+      else buf#start_iter, buf#end_iter
+    in
+    let phrases = get_phrases start stop in
+    eval_phrases phrases
+  in
+  let top_ref = ref None in
+  let rec top_start () =
+    let schedule f = GMain.Idle.add @@ fun () ->
+        try f (); false with
+          e ->
+            Printf.eprintf "Error in toplevel interaction: %s%!"
+              (Tools.printexc e);
+            raise e
+    in
+    let resp_handler = function
+      | Top.Message m -> display_top_response m
+      | Top.User u -> display_stdout u
+      | Top.Exited ->
+          toplevel_buffer#insert ~iter:toplevel_buffer#end_iter
+            "\t\t*** restarting ocaml ***\n";
+    in
+    replace_marks ();
+    Top.start schedule resp_handler status_change_hook
+  and status_change_hook = function
+    | Top.Dead ->
+        Gui.Controls.disable `EXECUTE;
+        Gui.Controls.disable `STOP;
+        top_ref := Some (top_start ())
+    | Top.Ready ->
+        Gui.Controls.enable `EXECUTE;
+        Gui.Controls.disable `STOP
+    | Top.Busy _ ->
+        Gui.Controls.disable `EXECUTE;
+        Gui.Controls.enable `STOP
+  in
+  Gui.Controls.bind `EXECUTE (fun () ->
+    topeval @@ match !top_ref with
+    | Some top -> top
+    | None -> let top = top_start () in
+        top_ref := Some top; top);
+  Gui.Controls.bind `STOP (fun () ->
+    match !top_ref with
+    | Some top -> Top.stop top
+    | None -> ());
+  Gui.Controls.bind `RESTART (fun () ->
+    match !top_ref with
+    | Some top -> Top.kill top
+    | None -> ());
+  Gui.Controls.bind `CLEAR (fun () ->
+    toplevel_buffer#delete
+      ~start:toplevel_buffer#start_iter
+      ~stop:toplevel_buffer#end_iter);
+  top_ref := Some (top_start ())
 
 let _ =
   Tools.debug "Init done, showing main window";

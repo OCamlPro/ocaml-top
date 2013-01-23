@@ -1,10 +1,13 @@
 module Controls : sig
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
-           | `EXECUTE | `STOP
+           | `EXECUTE | `STOP | `CLEAR | `RESTART
            | `QUIT ]
 
   val bind: t -> (unit -> unit) -> unit
   (* val trigger: t -> unit *)
+
+  val enable: t -> unit
+  val disable: t -> unit
 end
 
 module Dialogs : sig

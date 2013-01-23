@@ -3,10 +3,26 @@ open Tools.Ops
 let _ = GtkMain.Main.init()
 
 module Controls = struct
-  type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS | `EXECUTE | `STOP | `QUIT ]
+  type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
+           | `EXECUTE | `STOP | `CLEAR | `RESTART
+           | `QUIT ]
 
-  let to_string: t -> string = function
-    | #GtkStock.id as id -> GtkStock.convert_id id
+  let stock: t -> GtkStock.id = function
+    | `RESTART -> `REFRESH
+    | #GtkStock.id as id -> id
+
+  let to_string command = GtkStock.convert_id (stock command)
+
+  let help: t -> string * string = function
+    | `NEW -> "New","Create a new file"
+    | `OPEN -> "Open...","Select an existing file to edit"
+    | `SAVE -> "Save","Save the current file"
+    | `SAVE_AS -> "Save as...","Select a file to save the current program to"
+    | `EXECUTE -> "Run","Run the current program, or the selection if any"
+    | `STOP -> "Stop","Stop ongoing program execution"
+    | `RESTART -> "Restart","Terminate the current toplevel and start a new one"
+    | `CLEAR -> "Clear","Clear the toplevel window history"
+    | `QUIT -> "Quit","Quit ocp-edit-simple"
 
   (* We could use lablgtk's action groups as well. But better map from an open
      variant than from strings... *)
@@ -15,9 +31,10 @@ module Controls = struct
     in fun t ->
       try Hashtbl.find controls t
       with Not_found ->
-        let c = GAction.action ~name:(to_string t) () in
-        Hashtbl.add controls t c;
-        c
+          let c = GAction.action ~name:(to_string t) () in
+          c#set_stock_id (stock t);
+          Hashtbl.add controls t c;
+          c
 
   let bind command action =
     ignore @@ (signal command)#connect#activate ~callback:action
@@ -25,6 +42,16 @@ module Controls = struct
   let trigger command =
     Tools.debug "Event triggered: %s" @@ to_string command;
     ignore @@ (signal command)#activate ()
+
+  let add_trigger command widget =
+    (signal command)#connect_proxy (widget :> GObj.widget)
+
+  let enable command =
+    (signal command)#set_sensitive true
+
+  let disable command =
+    (signal command)#set_sensitive false
+
 end
 
 (* use `ALWAYS for vertical scrollbars, otherwise it is possible to trigger a
@@ -57,9 +84,14 @@ let as_widget o = (o :> GObj.widget)
 
 let main_window =
   let logo = GdkPixbuf.from_file "logo.png" in
+  let tooltips = GData.tooltips () in
   let mkbutton ctrl =
-    let btn = GButton.tool_button ~stock:(ctrl: Controls.t :> GtkStock.id) () in
-    ignore @@ btn#connect#clicked ~callback:(fun () -> Controls.trigger ctrl);
+    let label,text = Controls.help ctrl in
+    let btn = GButton.tool_button ~stock:(Controls.stock ctrl) ~label () in
+    Controls.add_trigger ctrl btn;
+    btn#set_label label;
+    tooltips#set_tip ~text (btn :> GObj.widget);
+    (* ignore @@ btn#connect#clicked ~callback:(fun () -> Controls.trigger ctrl); *)
     (btn :> GObj.widget)
   in
   let win =
@@ -80,6 +112,8 @@ let main_window =
           (GButton.separator_tool_item () :> GObj.widget);
           mkbutton `EXECUTE;
           mkbutton `STOP;
+          mkbutton `CLEAR;
+          mkbutton `RESTART;
           (GButton.separator_tool_item () :> GObj.widget);
           mkbutton `QUIT;
         ]
@@ -144,8 +178,8 @@ let open_toplevel_view top_buf =
       ~indent_on_tab:false
       ~indent_width:2
       ~accepts_tab:false
-      ~wrap_mode:`CHAR
-      ~cursor_visible:false
+      ~wrap_mode:`NONE
+      ~cursor_visible:true
       ~editable:false
       ()
   in
