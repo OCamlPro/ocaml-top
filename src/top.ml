@@ -125,13 +125,13 @@ let start schedule response_handler status_hook =
       assert (Thread.self () = main_thread);
       Event.sync event_receive)
   in
-  let response_reader_thread =
+  let _response_reader_thread =
     Thread.create
       (reader_thread response_fdescr
          receive_from_main_thread
          (fun resp -> Message resp)) t
   in
-  let error_reader_thread =
+  let _error_reader_thread =
     Thread.create
       (reader_thread error_fdescr
          receive_from_main_thread
@@ -146,8 +146,8 @@ let start schedule response_handler status_hook =
     (* Not implemented !! And the thread is stuck waiting and we don't have
        proper signals on windows... Guess we are going to leave some garbage
        behind, unless somebody got some idea ? *)
-    (* Thread.kill response_reader_thread; *)
-    (* Thread.kill error_reader_thread *));
+    (* Thread.kill _response_reader_thread; *)
+    (* Thread.kill _error_reader_thread *));
   set_status t Ready;
   t
 
@@ -169,7 +169,7 @@ let await_full_response cont =
   | Message s ->
       Buffer.add_string buf s;
       (* fragile way to detect end of answer *)
-      (match buffer_rm_suffix buf "\n# " with
+      (match buffer_rm_suffix buf "# " with
       | Some s -> s |> cont
       | None -> ())
   | User _ -> ()
@@ -183,7 +183,7 @@ let query t q cont =
       Some (await_full_response @@ fun response ->
           t.receive_hook <- None;
           set_status t Ready;
-          if response <> "" then cont response);
+          cont response);
     output_string t.query_channel q;
     output_string t.query_channel ";;\n";
     flush t;
