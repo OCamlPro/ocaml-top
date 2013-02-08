@@ -55,12 +55,18 @@ module Buffer = struct
       t#set_property (`INVISIBLE true);
       t
 
+    let error =
+      let t = GText.tag ~name:"error" () in
+      t#set_property (`BACKGROUND "red");
+      t
+
     let table =
       Tools.debug "table";
       let table = GText.tag_table () in
       table#add phrase#as_tag;
       table#add stdout#as_tag;
       table#add invisible#as_tag;
+      table#add error#as_tag;
       table
   end
 
@@ -254,9 +260,23 @@ let init_top_view () =
     let lines = Str.split_delim delim response in
     disp_lines lines
   in
-  let handle_response response _buf _start_mark _end_mark =
+  let handle_response response buf start_mark end_mark =
     (* TODO: parse and handle error messages *)
-    Tools.debug "Was supposed to parse and analyse %S" response
+    Tools.debug "Was supposed to parse and analyse %S" response;
+    let error_regex =
+      Str.regexp "^Characters \\([0-9]+\\)-\\([0-9]+\\)"
+    in
+    try
+      let _i = Str.search_forward error_regex response 0 in
+      let start_char, end_char =
+        int_of_string @@ Str.matched_group 1 response,
+        int_of_string @@ Str.matched_group 2 response
+      in
+      Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
+      buf#apply_tag Buffer.Tags.error
+        ~start:((buf#get_iter_at_mark start_mark)#forward_chars start_char)
+        ~stop: ((buf#get_iter_at_mark start_mark)#forward_chars end_char)
+    with Not_found -> ()
   in
   let topeval top =
     let buf = !current_buffer.Buffer.gbuffer in
