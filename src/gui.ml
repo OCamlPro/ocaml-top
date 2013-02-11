@@ -56,6 +56,7 @@ let pack objs (container: GPack.box) =
 let as_widget o = (o :> GObj.widget)
 
 let main_window =
+  let logo = GdkPixbuf.from_file "logo.png" in
   let mkbutton ctrl =
     let btn = GButton.tool_button ~stock:(ctrl: Controls.t :> GtkStock.id) () in
     ignore @@ btn#connect#clicked ~callback:(fun () -> Controls.trigger ctrl);
@@ -65,6 +66,7 @@ let main_window =
     GWindow.window
       ~title:"ocp-simple-edit"
       ~height:600 ~allow_shrink:true (* ~width:800 ~show:true *)
+      ~icon:logo
       ()
     |> add [
       GPack.vbox ()
