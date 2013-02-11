@@ -27,11 +27,13 @@ module Controls = struct
     ignore @@ (signal command)#activate ()
 end
 
+(* use `ALWAYS for vertical scrollbars, otherwise it is possible to trigger a
+   bug in GTK that locks the mouse when resizing the panes *)
 let main_view =
-  GBin.scrolled_window ~vpolicy:`AUTOMATIC ~hpolicy:`AUTOMATIC ()
+  GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`NEVER ()
 
 let toplevel_view =
-  GBin.scrolled_window ~vpolicy:`AUTOMATIC ~hpolicy:`AUTOMATIC ()
+  GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`ALWAYS ()
 
 type shortcut_mods = [ `CONTROL | `SHIFT | `META | `SUPER | `HYPER ]
 let shortcuts = [
