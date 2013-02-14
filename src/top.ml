@@ -38,8 +38,9 @@ let receive_event t f =
       f resp;
       if resp = Exited && t.status <> Dead then (* we already know *)
         (Tools.debug "Toplevel exit event received";
-         set_status t Dead;
-         t.exit_hook ());
+         t.status <- Dead; (* don't run the hook yet *)
+         t.exit_hook ();
+         set_status t Dead);
       resp
   in
   let evt = Event.wrap evt @@ fun resp ->
