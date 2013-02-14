@@ -61,12 +61,15 @@ let reader_thread fdescr receive_from_main_thread build_response t =
        Thread.exit ());
     try
       let nread = Unix.read fdescr buf 0 buf_len in
-      if nread = 0 then
+      if nread <= 0 then
         (Tools.debug "Error reading from the ocaml process, \
                       terminating reader thread";
          Thread.exit ());
-      (* Tools.debug "Incoming response from ocaml"; *)
       let response = String.sub buf 0 nread in
+      Tools.debug "Incoming response from ocaml: %d %s" nread response;
+      if t.status = Dead then
+        (Tools.debug "OCaml process marked as dead, terminating reader thread";
+         Thread.exit ());
       receive_from_main_thread ();
       Event.sync (Event.send t.response_channel (build_response response));
       loop ()
@@ -143,12 +146,12 @@ let start schedule response_handler status_hook =
       (watchdog_thread receive_from_main_thread) t
   in
   t.exit_hook <- (fun () ->
-    List.iter Unix.close [query_fdescr;response_fdescr;error_fdescr]
-    (* Not implemented !! And the thread is stuck waiting and we don't have
-       proper signals on windows... Guess we are going to leave some garbage
-       behind, unless somebody got some idea ? *)
-    (* Thread.kill _response_reader_thread; *)
-    (* Thread.kill _error_reader_thread *));
+    List.iter Unix.close [query_fdescr; response_fdescr; error_fdescr];
+    Tools.debug "Collecting threads...";
+    List.iter Thread.join
+      [_response_reader_thread; _error_reader_thread; _error_reader_thread];
+    Tools.debug " done"
+  );
   set_status t Ready;
   t
 
