@@ -1,5 +1,5 @@
 SRC = tools.ml top.mli top.ml gui.mli gui.ml main.ml
-OCAMLFIND_OPTS = -package unix,lablgtk2,lablgtk2.sourceview2,str -linkpkg -thread -g
+OCAMLFIND_OPTS = -package unix,lablgtk2,lablgtk2.sourceview2,str,ocp-indent-lexer,ocp-indent-utils,ocp-indent-lib -linkpkg -thread -g
 
 UNAME := $(shell uname)
 ifeq (WIN,$(findstring WIN,$(UNAME)))

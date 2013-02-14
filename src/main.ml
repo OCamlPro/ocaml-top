@@ -15,6 +15,7 @@ end
 module Buffer = struct
   type t = {
     mutable filename: string option;
+    mutable need_reindent: bool;
     gbuffer: GSourceView2.source_buffer;
     view: GSourceView2.source_view;
   }
@@ -61,7 +62,6 @@ module Buffer = struct
       t
 
     let table =
-      Tools.debug "table";
       let table = GText.tag_table () in
       table#add phrase#as_tag;
       table#add stdout#as_tag;
@@ -69,6 +69,46 @@ module Buffer = struct
       table#add error#as_tag;
       table
   end
+
+  let reindent (buf: GSourceView2.source_buffer) =
+    let reader =
+      let text = buf#get_text ~start:buf#start_iter ~stop:buf#end_iter () in
+      let pos = ref 0 in
+      fun str len ->
+        let n = min len (String.length text - !pos) in
+        String.blit text !pos str 0 n;
+        pos := !pos + n;
+        n
+    in
+    let buf_indent =
+      let line = ref 0 in
+      fun indent ->
+        let start = buf#get_iter (`LINE !line) in
+        if start#char = int_of_char ' ' then (
+          let stop =
+            start#forward_find_char
+              ~limit:start#forward_to_line_end
+              (fun c -> not (Glib.Unichar.isspace c))
+          in
+          buf#delete ~start ~stop
+        );
+        if not start#ends_line || (buf#get_iter `INSERT)#line = !line then
+          buf#insert ~iter:(buf#get_iter (`LINE !line))
+            (String.make indent ' ');
+        incr line
+    in
+    let input = Nstream.make reader in
+    let output = {
+      IndentPrinter.
+      debug = false;
+      config =
+        IndentConfig.update_from_string IndentConfig.default "apprentice";
+      in_lines = (fun _ -> true);
+      indent_empty = true;
+      kind = IndentPrinter.Numeric buf_indent;
+    }
+    in
+    IndentPrinter.stream output input
 
   let create ?name ?(contents="")
       (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
@@ -91,11 +131,32 @@ module Buffer = struct
     gbuffer#begin_not_undoable_action ();
     gbuffer#place_cursor ~where:gbuffer#start_iter;
     let view = mkview gbuffer in
-    let t = { filename = name; gbuffer; view } in
+    let t = { filename = name; need_reindent = false; gbuffer; view } in
     ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
       set_window_title "%s%s" (filename_default t) @@
         if gbuffer#modified then "*" else "");
     unmodify t;
+    let trigger_reindent () =
+      if not t.need_reindent then
+        (t.need_reindent <- true;
+         ignore @@ GMain.Idle.add @@ fun () ->
+           reindent gbuffer;
+           t.need_reindent <- false;
+           false)
+    in
+    ignore @@ gbuffer#connect#insert_text ~callback:(fun _iter text ->
+        let rec contains_space i =
+          if i >= String.length text then false
+          else match text.[i] with
+            | ' ' | '\n' -> true
+            | _ -> contains_space (i+1)
+        in
+        if contains_space 0 then trigger_reindent ()
+      );
+    ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start:_ ~stop:_ ->
+        trigger_reindent ()
+      );
+    trigger_reindent ();
     gbuffer#end_not_undoable_action ();
     t
 
