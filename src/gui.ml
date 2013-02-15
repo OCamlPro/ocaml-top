@@ -152,7 +152,7 @@ let open_text_view buffer =
       ~source_buffer:buffer
       ~auto_indent:true
       ~highlight_current_line:true
-      ~indent_on_tab:true
+      ~indent_on_tab:false
       ~indent_width:2
       ~accepts_tab:false
       ~wrap_mode:`CHAR

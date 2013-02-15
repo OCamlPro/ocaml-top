@@ -15,9 +15,11 @@ end
 module Buffer = struct
   type t = {
     mutable filename: string option;
-    mutable need_reindent: bool;
     gbuffer: GSourceView2.source_buffer;
     view: GSourceView2.source_view;
+    mutable need_reindent: bool;
+    (* mutable error_tags: GText.tag list; *)
+    (* mutable indent_tags: GText.tag list; *)
   }
 
   let contents buf = buf.gbuffer#get_text ()
@@ -68,6 +70,23 @@ module Buffer = struct
       table#add invisible#as_tag;
       table#add error#as_tag;
       table
+
+    let get_indent, indent =
+      let indent_tags = Hashtbl.create 64 in
+      let reverse = Hashtbl.create 64 in
+      (fun t ->
+        try Some (Hashtbl.find reverse t#get_oid) with
+        | Not_found -> None),
+      fun n ->
+        try Hashtbl.find indent_tags n with
+        | Not_found ->
+            let name = Printf.sprintf "indent-%d" n in
+            let t = GText.tag ~name () in
+            t#set_property (`INDENT (n*8)); (* FIXME: font-width *)
+            Hashtbl.add indent_tags n t;
+            Hashtbl.add reverse t#get_oid n;
+            table#add t#as_tag;
+            t
   end
 
   let reindent (buf: GSourceView2.source_buffer) =
@@ -85,6 +104,7 @@ module Buffer = struct
       fun indent ->
         let start = buf#get_iter (`LINE !line) in
         if start#char = int_of_char ' ' then (
+          (* cleanup whitespace (todo: except in comments) *)
           let stop =
             start#forward_find_char
               ~limit:start#forward_to_line_end
@@ -92,9 +112,14 @@ module Buffer = struct
           in
           buf#delete ~start ~stop
         );
-        if not start#ends_line || (buf#get_iter `INSERT)#line = !line then
-          buf#insert ~iter:(buf#get_iter (`LINE !line))
-            (String.make indent ' ');
+        let stop = start#forward_to_line_end in
+        (* fixme: might leave tags when deleting a line break *)
+        List.iter (fun tag -> match Tags.get_indent tag with
+          | Some n when n <> indent ->
+              buf#remove_tag tag ~start ~stop
+          | Some _ | None -> ())
+          start#tags;
+        buf#apply_tag (Tags.indent indent) ~start:start#backward_char ~stop;
         incr line
     in
     let input = Nstream.make reader in
@@ -115,8 +140,8 @@ module Buffer = struct
     let gbuffer =
       if not (Glib.Utf8.validate contents) then
         Tools.recover_error
-          ("Could not open file %s because it contains invalid utf-8 "
-           ^^ "characters. Please fix it or choose another file")
+          "Could not open file %s because it contains invalid utf-8 \
+           characters. Please fix it or choose another file"
           (match name with Some n -> n | None -> "<unnamed>");
       GSourceView2.source_buffer
         ~text:contents
