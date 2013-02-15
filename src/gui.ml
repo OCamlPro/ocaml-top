@@ -156,6 +156,9 @@ let open_text_view buffer =
       ~indent_width:2
       ~accepts_tab:false
       ~wrap_mode:`CHAR
+      ~show_right_margin:true
+      ~show_line_marks:true
+      ~show_line_numbers:true
       ()
   in
   List.iter main_view#remove main_view#children;
@@ -179,7 +182,7 @@ let open_toplevel_view top_buf =
       ~indent_width:2
       ~accepts_tab:false
       ~wrap_mode:`NONE
-      ~cursor_visible:true
+      ~cursor_visible:false
       ~editable:false
       ()
   in
