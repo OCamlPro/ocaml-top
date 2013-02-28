@@ -149,7 +149,6 @@ let set_window_title fmt =
 
 let open_text_view buffer =
   Tools.debug "open text view";
-  let font = Pango.Font.from_string "Monospace 10" in
   let view =
     GSourceView2.source_view
       ~source_buffer:buffer
@@ -165,10 +164,12 @@ let open_text_view buffer =
       ()
   in
   List.iter main_view#remove main_view#children;
+  view#misc#modify_font_by_name
+    "Consolas,Courier new,Vera sans,Monospace Mono 8";
+
   main_view#add (view :> GObj.widget);
   (* view#misc#modify_base [`NORMAL, `NAME "grey20"]; *)
   (* view#misc#modify_text [`NORMAL, `NAME "wheat"]; *)
-  view#misc#modify_font font;
   view#misc#set_size_chars ~width:81 ();
   view#misc#grab_focus ();
   view

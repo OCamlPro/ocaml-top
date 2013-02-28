@@ -73,19 +73,25 @@ module Tags = struct
     (fun t ->
       try Some (Hashtbl.find reverse t#get_oid) with
       | Not_found -> None),
-    fun n ->
+    fun obuf n ->
       try Hashtbl.find indent_tags n with
       | Not_found ->
           let name = Printf.sprintf "indent-%d" n in
           let t = GText.tag ~name () in
-          t#set_property (`INDENT (n*8)); (* FIXME: font-width *)
+          let char_width =
+            (obuf.view#misc#pango_context#get_metrics ())#approx_char_width
+            / Pango.scale
+          in
+          Tools.debug "Indent %dx%d => %dpx" n char_width (n*char_width);
+          t#set_property (`INDENT (n*char_width));
           Hashtbl.add indent_tags n t;
           Hashtbl.add reverse t#get_oid n;
           table#add t#as_tag;
           t
 end
 
-let reindent (buf: GSourceView2.source_buffer) =
+let reindent t =
+  let buf = t.gbuffer in
   let reader =
     let text = buf#get_text ~start:buf#start_iter ~stop:buf#end_iter () in
     let pos = ref 0 in
@@ -115,7 +121,7 @@ let reindent (buf: GSourceView2.source_buffer) =
             buf#remove_tag tag ~start ~stop
         | Some _ | None -> ())
         start#tags;
-      buf#apply_tag (Tags.indent indent) ~start:start#backward_char ~stop;
+      buf#apply_tag (Tags.indent t indent) ~start:start#backward_char ~stop;
       incr line
   in
   let input = Nstream.make reader in
@@ -161,7 +167,7 @@ let create ?name ?(contents="")
     if not t.need_reindent then
       (t.need_reindent <- true;
        ignore @@ GMain.Idle.add @@ fun () ->
-         reindent gbuffer;
+         reindent t;
          t.need_reindent <- false;
          false)
   in
