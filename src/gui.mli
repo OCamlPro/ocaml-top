@@ -22,6 +22,8 @@ end
 
 val main_window : GWindow.window
 
+val set_window_title : ('a, unit, string, string, string, unit) format6 -> 'a
+
 val open_text_view : GSourceView2.source_buffer -> GSourceView2.source_view
 
 val open_toplevel_view : GSourceView2.source_buffer -> GSourceView2.source_view

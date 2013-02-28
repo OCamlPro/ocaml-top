@@ -144,6 +144,9 @@ let main_window =
       | Not_found -> false);
   win
 
+let set_window_title fmt =
+  Printf.ksprintf main_window#set_title (fmt ^^ " - ocp-edit-simple")
+
 let open_text_view buffer =
   Tools.debug "open text view";
   let font = Pango.Font.from_string "Monospace 10" in
