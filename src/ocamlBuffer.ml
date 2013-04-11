@@ -18,8 +18,6 @@ type t = {
   (* mutable indent_tags: GText.tag list; *)
 }
 
-let contents buf = buf.gbuffer#get_text ()
-
 let is_modified buf = buf.gbuffer#modified
 
 let unmodify buf = buf.gbuffer#set_modified false
@@ -136,6 +134,31 @@ let reindent t =
   }
   in
   IndentPrinter.stream output input
+
+let raw_contents buf = buf.gbuffer#get_text ()
+
+(* re-indented contents *)
+let contents buf =
+  let indent_at it =
+    List.fold_left (fun indent tag ->
+        match Tags.get_indent tag with
+        | None -> indent
+        | Some n -> n
+    ) 0 it#tags
+  in
+  let out = Buffer.create 256 in
+  let rec get_lines start =
+    if start#is_end then ()
+    else
+      let stop = start#forward_line in
+      if not start#ends_line then
+        (let indent = indent_at start in
+         for i = 1 to indent do Buffer.add_char out ' ' done);
+      Buffer.add_string out (buf.gbuffer#get_text ~start ~stop ());
+      get_lines stop
+  in
+  get_lines buf.gbuffer#start_iter;
+  Buffer.contents out
 
 let create ?name ?(contents="")
     (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
