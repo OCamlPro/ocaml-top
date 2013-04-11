@@ -137,8 +137,7 @@ let reindent t =
 
 let raw_contents buf = buf.gbuffer#get_text ()
 
-(* re-indented contents *)
-let contents buf =
+let get_indented_text ~start ~stop buf =
   let indent_at it =
     List.fold_left (fun indent tag ->
         match Tags.get_indent tag with
@@ -148,17 +147,26 @@ let contents buf =
   in
   let out = Buffer.create 256 in
   let rec get_lines start =
-    if start#is_end then ()
+    if start#offset >= stop#offset then ()
     else
-      let stop = start#forward_line in
+      let stop =
+        let s = start#forward_line in
+        if s#offset >= stop#offset then stop else s
+      in
       if not start#ends_line then
         (let indent = indent_at start in
          for i = 1 to indent do Buffer.add_char out ' ' done);
       Buffer.add_string out (buf.gbuffer#get_text ~start ~stop ());
       get_lines stop
   in
-  get_lines buf.gbuffer#start_iter;
+  get_lines start;
   Buffer.contents out
+
+(* re-indented contents *)
+let contents buf =
+  get_indented_text
+    ~start:buf.gbuffer#start_iter ~stop:buf.gbuffer#end_iter
+    buf
 
 let create ?name ?(contents="")
     (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
@@ -215,6 +223,6 @@ let get_selection buf =
   let gbuf = buf.gbuffer in
   if gbuf#has_selection then
     let start,stop = gbuf#selection_bounds in
-    Some (gbuf#get_text ~start ~stop ())
+    Some (get_indented_text buf ~start ~stop)
   else
     None

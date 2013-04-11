@@ -88,42 +88,43 @@ let init_top_view current_buffer_ref toplevel_buffer =
       Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
       let start = (buf#get_iter_at_mark start_mark)#forward_chars start_char in
       let stop = (buf#get_iter_at_mark start_mark)#forward_chars end_char in
-      let errmark = GSourceView2.source_mark ~category:"error" () in
+      let _errmark = GSourceView2.source_mark ~category:"error" () in
       buf#apply_tag Buffer.Tags.error ~start ~stop
     with Not_found -> ()
   in
   let topeval top =
-    let buf = !current_buffer_ref.Buffer.gbuffer in
+    let buf = !current_buffer_ref in
+    let gbuf = buf.Buffer.gbuffer in
     let rec get_phrases (start:GText.iter) (stop:GText.iter) =
       match start#forward_search ~limit:stop ";;" with
       | Some (a,b) ->
-          (buf#get_text ~start ~stop:a (),
-           `MARK (buf#create_mark start), `MARK (buf#create_mark a))
+          (Buffer.get_indented_text ~start ~stop:a buf,
+           `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark a))
           :: get_phrases b stop
       | None ->
-          [buf#get_text ~start ~stop (),
-           `MARK (buf#create_mark start), `MARK (buf#create_mark stop)]
+          [Buffer.get_indented_text ~start ~stop buf,
+           `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
     in
     let rec eval_phrases = function
       | [] -> ()
       | (phrase,start_mark,stop_mark) :: rest ->
           let trimmed = String.trim phrase in
           if trimmed = "" then
-            (buf#delete_mark start_mark;
-             buf#delete_mark stop_mark;
+            (gbuf#delete_mark start_mark;
+             gbuf#delete_mark stop_mark;
              eval_phrases rest)
           else
             (display_top_query trimmed;
              replace_marks ();
              Top.query top phrase @@ fun response ->
-               handle_response response buf start_mark stop_mark;
-               buf#delete_mark start_mark; (* really, not the Gc's job ? *)
-               buf#delete_mark stop_mark;
+               handle_response response gbuf start_mark stop_mark;
+               gbuf#delete_mark start_mark; (* really, not the Gc's job ? *)
+               gbuf#delete_mark stop_mark;
                eval_phrases rest)
     in
     let start, stop =
-      if buf#has_selection then buf#selection_bounds
-      else buf#start_iter, buf#end_iter
+      if gbuf#has_selection then gbuf#selection_bounds
+      else gbuf#start_iter, gbuf#end_iter
     in
     let phrases = get_phrases start stop in
     eval_phrases phrases
