@@ -87,4 +87,11 @@ let _ =
   if Array.length Sys.argv > 1 then Actions.load_file Sys.argv.(1);
   TopUi.init_top_view current_buffer toplevel_buffer;
   Gui.main_window#show();
+  Tools.debug "Setting up callback exception handler: %a" (fun ch s ->
+    GtkSignal.user_handler := (fun exc ->
+      Tools.debug "Exception in handler: %s at %s\n"
+        (Printexc.to_string exc)
+        (Printexc.get_backtrace ()));
+    output_string ch s)
+    "ok";
   protect ~loop:true GMain.main ()

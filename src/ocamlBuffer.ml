@@ -90,11 +90,18 @@ end
 
 let reindent t =
   let buf = t.gbuffer in
+  (* ensure buffer ends with a newline *)
+  if buf#end_iter#line_offset > 0 then (
+    let cursor = buf#create_mark (buf#get_iter_at_mark `INSERT) in
+    buf#insert ~iter:buf#end_iter "\n";
+    buf#place_cursor ~where:(buf#get_iter_at_mark (`MARK cursor))
+  );
   let reader =
     let text = buf#get_text ~start:buf#start_iter ~stop:buf#end_iter () in
+    let textlen = String.length text in
     let pos = ref 0 in
     fun str len ->
-      let n = min len (String.length text - !pos) in
+      let n = min len (textlen - !pos) in
       String.blit text !pos str 0 n;
       pos := !pos + n;
       n
@@ -188,17 +195,31 @@ let setup_completion buf =
     LibIndex.load ocaml_dirs
   in
   let ocaml_completion_provider =
+    (* ref needed for bootstrap (!) *)
     let provider_ref = ref None in
-    let custom = object (self)
-      method name = "OCaml completion using ocp-index"
+    let is_prefix_char =
+      let chars = List.map int_of_char ['.';'_';'\''] in
+      fun gchar ->
+        Glib.Unichar.isalnum gchar ||
+        List.mem gchar chars
+    in
+    let custom_provider = object (self)
+      method name = "Available library values"
       method icon = None
       method populate : GSourceView2.source_completion_context -> unit =
         fun context ->
           let candidates =
-            LibIndex.complete lib_index
-              (buf.gbuffer#get_text
-                 ~start:context#iter
-                 ~stop:(buf.gbuffer#get_iter `INSERT) ())
+            let stop = context#iter in
+            let start =
+              let limit = stop#set_line_offset 0 in
+              let it =
+                stop#backward_find_char ~limit (fun c -> not (is_prefix_char c))
+              in
+              if it#equal limit then it else it#forward_char
+            in
+            let word = buf.gbuffer#get_text ~start ~stop () in
+            Tools.debug "Completing on %S" word;
+            LibIndex.complete lib_index word
           in
           let propals =
             List.map (fun info ->
@@ -215,8 +236,8 @@ let setup_completion buf =
             (match !provider_ref with Some p -> p | None -> assert false)
             propals
             true
-      method matched context = true
-      method activation = [`INTERACTIVE; `USER_REQUESTED]
+      method matched context = is_prefix_char context#iter#backward_char#char
+      method activation = [`USER_REQUESTED] (* `INTERACTIVE *)
       method info_widget _propal = None
       method update_info _propal _info = ()
       method start_iter _context _propal _iter = false
@@ -226,12 +247,25 @@ let setup_completion buf =
     end
     in
     let provider =
-      GSourceView2.source_completion_provider custom
+      GSourceView2.source_completion_provider custom_provider
     in
     provider_ref := Some provider;
     provider
   in
-  buf.view#completion#add_provider ocaml_completion_provider
+  let compl = buf.view#completion in
+  compl#set_remember_info_visibility true;
+  compl#set_show_headers false;
+  ignore (compl#add_provider ocaml_completion_provider);
+  (* let compl_visible = ref false in *)
+  ignore (buf.view#event#connect#key_press ~callback:(fun ev ->
+    if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then
+      (* trigger compl; *)
+      (ignore (compl#show [ocaml_completion_provider]
+                 (compl#create_context (buf.gbuffer#get_iter `INSERT)));
+       true)
+    else false
+  ));
+  ()
 
 let create ?name ?(contents="")
     (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
@@ -262,21 +296,25 @@ let create ?name ?(contents="")
   let trigger_reindent () =
     if not t.need_reindent then
       (t.need_reindent <- true;
+       Tools.debug "Reindent triggered";
        ignore @@ GMain.Idle.add @@ fun () ->
          reindent t;
          t.need_reindent <- false;
          false)
   in
-  (* TODO: when style changed by sourceview syntax coloration ? *)
-  ignore @@ gbuffer#connect#insert_text ~callback:(fun _iter text ->
-      let rec contains_space i =
-        if i >= String.length text then false
-        else match text.[i] with
-          | ' ' | '\n' -> true
-          | _ -> contains_space (i+1)
-      in
-      if contains_space 0 then trigger_reindent ()
-    );
+  ignore @@ gbuffer#connect#apply_tag ~callback:(fun _tag ~start ~stop ->
+    if start#equal ((gbuffer#get_iter_at_mark `INSERT)#set_line_offset 0)
+    then trigger_reindent ()
+  );
+  (* ignore @@ gbuffer#connect#insert_text ~callback:(fun iter text -> *)
+  (*     let rec contains_space i = *)
+  (*       if i >= String.length text then false *)
+  (*       else match text.[i] with *)
+  (*         | ' ' | '\n' -> true *)
+  (*         | _ -> contains_space (i+1) *)
+  (*     in *)
+  (*     if contains_space 0 || iter#line_offset = 0 then trigger_reindent () *)
+  (*   ); *)
   ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start:_ ~stop:_ ->
       trigger_reindent ()
     );
