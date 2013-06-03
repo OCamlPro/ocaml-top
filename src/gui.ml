@@ -83,7 +83,7 @@ let pack objs (container: GPack.box) =
 let as_widget o = (o :> GObj.widget)
 
 let main_window =
-  let logo = GdkPixbuf.from_file "logo.png" in
+  let logo = GdkPixbuf.from_file "data/logo.png" in
   let tooltips = GData.tooltips () in
   let mkbutton ctrl =
     let label,text = Controls.help ctrl in
@@ -122,10 +122,10 @@ let main_window =
       |> add [
         GPack.paned `HORIZONTAL ()
         |> add [
-          GBin.frame ~label:"Source editor" ~shadow_type:`IN ()
-          |> add [ main_view ];
-          GBin.frame ~label:"OCaml interaction" ~shadow_type:`IN ()
-          |> add [ toplevel_view ];
+          (* GBin.frame ~label:"Source editor" ~shadow_type:`IN () *)
+          (* |> add [ *) main_view (* ] *);
+          (* GBin.frame ~label:"OCaml interaction" ~shadow_type:`IN () *)
+          (* |> add [ *) toplevel_view (* ]; *)
         ];
       ];
     ]
@@ -165,18 +165,17 @@ let open_text_view buffer =
   in
   List.iter main_view#remove main_view#children;
   view#misc#modify_font_by_name
-    "Consolas,Courier new,Vera sans,Monospace Mono 8";
+    "Consolas,Courier new,Vera sans,Monospace Mono 10";
 
   main_view#add (view :> GObj.widget);
   (* view#misc#modify_base [`NORMAL, `NAME "grey20"]; *)
   (* view#misc#modify_text [`NORMAL, `NAME "wheat"]; *)
-  view#misc#set_size_chars ~width:81 ();
+  view#misc#set_size_chars ~width:84 ();
   view#misc#grab_focus ();
   view
 
 let open_toplevel_view top_buf =
   Tools.debug "open top view";
-  let font = Pango.Font.from_string "Monospace 10" in
   let view =
     GSourceView2.source_view
       ~source_buffer:top_buf
@@ -190,10 +189,11 @@ let open_toplevel_view top_buf =
       ~editable:false
       ()
   in
+  view#misc#modify_font_by_name
+    "Consolas,Courier new,Vera sans,Monospace Mono 10";
   toplevel_view#add (view :> GObj.widget);
   (* view#misc#modify_base [`NORMAL, `NAME "grey20"]; *)
   (* view#misc#modify_text [`NORMAL, `NAME "wheat"]; *)
-  view#misc#modify_font font;
   view#misc#set_size_chars ~width:81 ();
   view
 
@@ -245,18 +245,23 @@ module Dialogs = struct
       | None -> "Current buffer"
     in
     let dialog = GWindow.dialog ~title:"Quit" () in
-    dialog#vbox#add
-      (GMisc.label
-         ~markup:(filename^" contains unsaved changes. What to do ?") ()
-       :> GObj.widget);
+    let txt =
+      let frame = GBin.frame ~border_width:40 ~shadow_type:`NONE () in
+      frame#add
+        (GMisc.label
+           ~markup:(filename^" contains unsaved changes. What to do ?") ()
+         :> GObj.widget);
+      (frame :> GObj.widget)
+    in
+    dialog#vbox#add txt;
     dialog#add_button_stock `SAVE `SAVE;
     dialog#add_button_stock `QUIT `QUIT;
     dialog#add_button_stock `CANCEL `CANCEL;
     let resp = ref true in
     ignore @@ dialog#connect#response ~callback:(function
-    | `SAVE -> resp := () |> save_k
-    | `QUIT -> resp := false
-    | `CANCEL | `DELETE_EVENT -> resp := true);
+      | `SAVE -> resp := () |> save_k
+      | `QUIT -> resp := false
+      | `CANCEL | `DELETE_EVENT -> resp := true);
     ignore @@ dialog#run ();
     dialog#destroy ();
     !resp

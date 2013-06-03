@@ -2,11 +2,17 @@ open Tools.Ops
 
 module GSourceView_params = struct
   let syntax =
-    (GSourceView2.source_language_manager ~default:true)
-      #language "objective-caml"
+    let mgr = GSourceView2.source_language_manager ~default:true in
+    mgr#set_search_path ((Sys.getcwd() ^ "/data") :: mgr#search_path);
+    let syn = mgr#language "ocp-edit-ocaml" in
+    if syn = None then Tools.debug "WARNING: ocaml language def not found";
+    syn
   let style =
-    (GSourceView2.source_style_scheme_manager ~default:true)
-      #style_scheme "cobalt"
+    let mgr = GSourceView2.source_style_scheme_manager ~default:true in
+    mgr#set_search_path ["data"];
+    let sty = mgr#style_scheme "cobalt" in
+    if sty = None then Tools.debug "WARNING: style def not found";
+    sty
 end
 
 type t = {
@@ -80,7 +86,6 @@ module Tags = struct
             (obuf.view#misc#pango_context#get_metrics ())#approx_char_width
             / Pango.scale
           in
-          Tools.debug "Indent %dx%d => %dpx" n char_width (n*char_width);
           t#set_property (`INDENT (n*char_width));
           Hashtbl.add indent_tags n t;
           Hashtbl.add reverse t#get_oid n;
@@ -288,6 +293,7 @@ let create ?name ?(contents="")
   gbuffer#begin_not_undoable_action ();
   gbuffer#place_cursor ~where:gbuffer#start_iter;
   let view = mkview gbuffer in
+  view#set_mark_category_pixbuf ~category:"error" (Some (GdkPixbuf.from_file "data/err_marker.png"));
   let t = { filename = name; need_reindent = false; gbuffer; view } in
   ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
       Gui.set_window_title "%s%s" (filename_default t) @@
@@ -296,25 +302,21 @@ let create ?name ?(contents="")
   let trigger_reindent () =
     if not t.need_reindent then
       (t.need_reindent <- true;
-       Tools.debug "Reindent triggered";
        ignore @@ GMain.Idle.add @@ fun () ->
          reindent t;
          t.need_reindent <- false;
          false)
   in
-  ignore @@ gbuffer#connect#apply_tag ~callback:(fun _tag ~start ~stop ->
-    if start#equal ((gbuffer#get_iter_at_mark `INSERT)#set_line_offset 0)
-    then trigger_reindent ()
-  );
-  (* ignore @@ gbuffer#connect#insert_text ~callback:(fun iter text -> *)
-  (*     let rec contains_space i = *)
-  (*       if i >= String.length text then false *)
-  (*       else match text.[i] with *)
-  (*         | ' ' | '\n' -> true *)
-  (*         | _ -> contains_space (i+1) *)
-  (*     in *)
-  (*     if contains_space 0 || iter#line_offset = 0 then trigger_reindent () *)
-  (*   ); *)
+  ignore @@ gbuffer#connect#insert_text ~callback:(fun iter text ->
+      let rec contains_sp i =
+        if i >= String.length text then false
+        else match text.[i] with
+          | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'' | '`' |'_' ->
+              contains_sp (i+1)
+          | _ -> true
+      in
+      if contains_sp 0 then trigger_reindent ()
+    );
   ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start:_ ~stop:_ ->
       trigger_reindent ()
     );
