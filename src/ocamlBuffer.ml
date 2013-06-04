@@ -208,48 +208,59 @@ let setup_completion buf =
         Glib.Unichar.isalnum gchar ||
         List.mem gchar chars
     in
-    let custom_provider = object (self)
-      method name = "Available library values"
-      method icon = None
-      method populate : GSourceView2.source_completion_context -> unit =
-        fun context ->
-          let candidates =
-            let stop = context#iter in
-            let start =
-              let limit = stop#set_line_offset 0 in
-              let it =
-                stop#backward_find_char ~limit (fun c -> not (is_prefix_char c))
-              in
-              if it#equal limit then it else it#forward_char
+    let completion_start_iter (iter:GText.iter) : GText.iter =
+      let limit = iter#set_line_offset 0 in
+      let iter =
+        iter#backward_find_char ~limit (fun c -> not (is_prefix_char c))
+      in
+      if iter#equal limit then iter else iter#forward_char
+    in
+    let custom_provider : GSourceView2.custom_completion_provider =
+      object (self)
+        method name = Tools.debug "name";
+          "Available library values"
+        method icon =  Tools.debug "icon"; None
+        method populate : GSourceView2.source_completion_context -> unit =
+          fun context ->
+            Tools.debug "populate";
+            let candidates =
+              let stop = context#iter in
+              let start = completion_start_iter stop in
+              let word = buf.gbuffer#get_text ~start ~stop () in
+              Tools.debug "Completing on %S" word;
+              LibIndex.complete lib_index word
             in
-            let word = buf.gbuffer#get_text ~start ~stop () in
-            Tools.debug "Completing on %S" word;
-            LibIndex.complete lib_index word
-          in
-          let propals =
-            List.map (fun info ->
-              (GSourceView2.source_completion_item
-                 ~label:(LibIndex.name info)
-                 ~text:(LibIndex.name info)
-                 ?icon:None
-                 ~info:(LibIndex.ty info)
-                 ()
-               :> GSourceView2.source_completion_proposal)
-            ) candidates
-          in
-          context#add_proposals
-            (match !provider_ref with Some p -> p | None -> assert false)
-            propals
-            true
-      method matched context = is_prefix_char context#iter#backward_char#char
-      method activation = [`USER_REQUESTED] (* `INTERACTIVE *)
-      method info_widget _propal = None
-      method update_info _propal _info = ()
-      method start_iter _context _propal _iter = false
-      method activate_proposal _propal _iter = true
-      method interactive_delay = 2
-      method priority = 2
-    end
+            let propals =
+              List.map (fun info ->
+                  (GSourceView2.source_completion_item
+                     ~label:(LibIndex.Print.name info)
+                     ~text:(LibIndex.Print.path info)
+                     ?icon:None
+                     ~info:(LibIndex.Print.ty info)
+                     ()
+                   :> GSourceView2.source_completion_proposal)
+                ) candidates
+            in
+            ignore @@ context#connect#cancelled
+                ~callback:(fun () -> Tools.debug "CANCEL!");
+            context#add_proposals
+              (match !provider_ref with Some p -> p | None -> assert false)
+              propals
+              true;
+        method matched context = Tools.debug "matched";
+          is_prefix_char context#iter#backward_char#char
+        method activation = [`USER_REQUESTED] (* `INTERACTIVE *)
+        method info_widget _propal = Tools.debug "info_widget"; None
+        method update_info _propal _info =  Tools.debug "update_info"; ()
+        method start_iter context _propal iter =
+          Tools.debug "start_iter";
+          (* ouch, answers by side effect on iter... *)
+          iter#nocopy#assign (completion_start_iter iter)#nocopy;
+          true
+        method activate_proposal _propal _iter =  Tools.debug "activate"; false
+        method interactive_delay = 2
+        method priority = 2
+      end
     in
     let provider =
       GSourceView2.source_completion_provider custom_provider
@@ -303,7 +314,7 @@ let create ?name ?(contents="")
     if not t.need_reindent then
       (t.need_reindent <- true;
        ignore @@ GMain.Idle.add @@ fun () ->
-         reindent t;
+         ignore @@ reindent t;
          t.need_reindent <- false;
          false)
   in
