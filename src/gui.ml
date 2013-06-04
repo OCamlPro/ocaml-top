@@ -4,12 +4,29 @@ let _ = GtkMain.Main.init()
 
 module Controls = struct
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
-           | `EXECUTE | `STOP | `CLEAR | `RESTART
+           | `EXECUTE | `STOP | `RESTART | `CLEAR
            | `QUIT ]
 
   let stock: t -> GtkStock.id = function
     | `RESTART -> `REFRESH
     | #GtkStock.id as id -> id
+
+  let icon t =
+    let name = match t with
+      | `NEW -> "new"
+      | `OPEN -> "open"
+      | `SAVE -> "save"
+      | `SAVE_AS -> "save-as"
+      | `EXECUTE -> "execute"
+      | `STOP -> "stop"
+      | `RESTART -> "restart"
+      | `CLEAR -> "clear"
+      | `QUIT -> "quit"
+    in
+    let file = Printf.sprintf "data/icons/%s.svg" name in
+    let pixbuf = GdkPixbuf.from_file_at_size file ~width:24 ~height:24 in
+    let img = GMisc.image ~pixbuf () in
+    img
 
   let to_string command = GtkStock.convert_id (stock command)
 
@@ -90,6 +107,7 @@ let main_window =
     let btn = GButton.tool_button ~stock:(Controls.stock ctrl) ~label () in
     Controls.add_trigger ctrl btn;
     btn#set_label label;
+    btn#set_icon_widget (Controls.icon ctrl :> GObj.widget);
     tooltips#set_tip ~text (btn :> GObj.widget);
     (* ignore @@ btn#connect#clicked ~callback:(fun () -> Controls.trigger ctrl); *)
     (btn :> GObj.widget)
@@ -112,8 +130,8 @@ let main_window =
           (GButton.separator_tool_item () :> GObj.widget);
           mkbutton `EXECUTE;
           mkbutton `STOP;
-          mkbutton `CLEAR;
           mkbutton `RESTART;
+          mkbutton `CLEAR;
           (GButton.separator_tool_item () :> GObj.widget);
           mkbutton `QUIT;
         ]
