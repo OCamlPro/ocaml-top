@@ -65,7 +65,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
     let rec disp_lines = function
       | [] -> ()
       | line::rest ->
-          insert_top ocaml_mark line;
+          insert_top  ~tags:[Buffer.Tags.ocamltop] ocaml_mark line;
           if rest <> [] then
             (insert_top ocaml_mark "\n";
              disp_lines rest)
@@ -76,22 +76,40 @@ let init_top_view current_buffer_ref toplevel_buffer =
   in
   let handle_response response (buf: GSourceView2.source_buffer)
       start_mark end_mark =
-    Tools.debug "Was supposed to parse and analyse %S" response;
     let error_regex =
       Str.regexp "^Characters \\([0-9]+\\)-\\([0-9]+\\)"
     in
-    try
-      let _i = Str.search_forward error_regex response 0 in
+    let rec find_and_mark_error i =
+      let i = Str.search_forward error_regex response i in
       let start_char, end_char =
         int_of_string @@ Str.matched_group 1 response,
         int_of_string @@ Str.matched_group 2 response
       in
       Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
-      let start = (buf#get_iter_at_mark start_mark)#forward_chars start_char in
-      let stop = (buf#get_iter_at_mark start_mark)#forward_chars end_char in
-      let _errmark = buf#create_source_mark ~category:"error" start in
-      buf#apply_tag Buffer.Tags.error ~start ~stop
-    with Not_found -> ()
+      let input_start = buf#get_iter_at_mark start_mark in
+      let start = input_start#forward_chars start_char in
+      let stop = input_start#forward_chars end_char in
+      let errmark = buf#create_source_mark ~category:"error" start in
+      buf#apply_tag Buffer.Tags.error ~start ~stop;
+      let _remove_mark =
+        let id = ref None in
+        let callback () =
+          (match !id with
+           | Some id -> buf#misc#disconnect id
+           | None -> Tools.debug "Warning, unbound error unmarking callback";
+               raise Exit);
+          let start = buf#get_iter_at_mark errmark#coerce in
+          let stop = start#forward_to_tag_toggle (Some Buffer.Tags.error) in
+          buf#remove_tag Buffer.Tags.error ~start ~stop;
+          (* buf#remove_source_marks ~category:"error" ~start ~stop ()
+             -- may segfault sometimes (??!) *)
+          buf#delete_mark errmark#coerce
+        in
+        id := Some (buf#connect#changed ~callback)
+      in
+      find_and_mark_error (i+1)
+    in
+    try find_and_mark_error 0 with Not_found -> ()
   in
   let topeval top =
     let buf = !current_buffer_ref in
