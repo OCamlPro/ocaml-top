@@ -87,7 +87,6 @@ let init_top_view current_buffer_ref toplevel_buffer =
       in
       Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
       let input_start = gbuf#get_iter_at_mark start_mark in
-      gbuf#move_mark buf.Buffer.eval_mark#coerce ~where:input_start;
       let start = input_start#forward_chars start_char in
       let stop = input_start#forward_chars end_char in
       let errmark = gbuf#create_source_mark ~category:"error" start in
@@ -110,10 +109,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
       in
       try find_and_mark_error (i+1) with Not_found -> false
     in
-    try find_and_mark_error 0 with Not_found ->
-        gbuf#move_mark buf.Buffer.eval_mark#coerce
-          ~where:(gbuf#get_iter_at_mark end_mark);
-        true
+    try find_and_mark_error 0 with Not_found -> true
   in
   let topeval top =
     let buf = !current_buffer_ref in
@@ -130,6 +126,15 @@ let init_top_view current_buffer_ref toplevel_buffer =
            Buffer.get_indented_text ~start ~stop buf,
            `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
     in
+    let (start, stop), should_update_eval_mark =
+      if gbuf#has_selection then gbuf#selection_bounds, false
+      else
+        (gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce,
+         match (gbuf#get_iter `INSERT)#forward_search ";;" with
+         | None -> gbuf#end_iter
+         | Some (_,b) -> b),
+        true
+    in
     let rec eval_phrases = function
       | [] -> ()
       | (phrase,indented,start_mark,stop_mark) :: rest ->
@@ -145,17 +150,12 @@ let init_top_view current_buffer_ref toplevel_buffer =
                let success =
                  handle_response response buf start_mark stop_mark
                in
+               if success && should_update_eval_mark then
+                 gbuf#move_mark buf.Buffer.eval_mark#coerce
+                   ~where:(gbuf#get_iter_at_mark stop_mark);
                gbuf#delete_mark start_mark; (* really, not the Gc's job ? *)
                gbuf#delete_mark stop_mark;
                if success then eval_phrases rest)
-    in
-    let start, stop =
-      if gbuf#has_selection then gbuf#selection_bounds
-      else
-        gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce,
-        match (gbuf#get_iter `INSERT)#forward_search ";;" with
-        | None -> gbuf#end_iter
-        | Some (_,b) -> b
     in
     let phrases = get_phrases start stop in
     eval_phrases phrases
@@ -177,6 +177,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
             "\t\t*** restarting ocaml ***\n";
     in
     replace_marks ();
+    let buf = !current_buffer_ref in
+    buf.Buffer.gbuffer#move_mark
+      buf.Buffer.eval_mark#coerce ~where:buf.Buffer.gbuffer#start_iter;
     Top.start schedule resp_handler status_change_hook
   and status_change_hook = function
     | Top.Dead ->
