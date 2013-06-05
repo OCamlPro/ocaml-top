@@ -74,8 +74,8 @@ let init_top_view current_buffer_ref toplevel_buffer =
     let lines = Str.split_delim delim response in
     disp_lines lines
   in
-  let handle_response response (buf: GSourceView2.source_buffer)
-      start_mark end_mark =
+  let handle_response response buf start_mark end_mark =
+    let gbuf = buf.Buffer.gbuffer in
     let error_regex =
       Str.regexp "^Characters \\([0-9]+\\)-\\([0-9]+\\)"
     in
@@ -86,30 +86,34 @@ let init_top_view current_buffer_ref toplevel_buffer =
         int_of_string @@ Str.matched_group 2 response
       in
       Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
-      let input_start = buf#get_iter_at_mark start_mark in
+      let input_start = gbuf#get_iter_at_mark start_mark in
+      gbuf#move_mark buf.Buffer.eval_mark#coerce ~where:input_start;
       let start = input_start#forward_chars start_char in
       let stop = input_start#forward_chars end_char in
-      let errmark = buf#create_source_mark ~category:"error" start in
-      buf#apply_tag Buffer.Tags.error ~start ~stop;
+      let errmark = gbuf#create_source_mark ~category:"error" start in
+      gbuf#apply_tag Buffer.Tags.error ~start ~stop;
       let _remove_mark =
         let id = ref None in
         let callback () =
           (match !id with
-           | Some id -> buf#misc#disconnect id
+           | Some id -> gbuf#misc#disconnect id
            | None -> Tools.debug "Warning, unbound error unmarking callback";
                raise Exit);
-          let start = buf#get_iter_at_mark errmark#coerce in
+          let start = gbuf#get_iter_at_mark errmark#coerce in
           let stop = start#forward_to_tag_toggle (Some Buffer.Tags.error) in
-          buf#remove_tag Buffer.Tags.error ~start ~stop;
+          gbuf#remove_tag Buffer.Tags.error ~start ~stop;
           (* buf#remove_source_marks ~category:"error" ~start ~stop ()
              -- may segfault sometimes (??!) *)
-          buf#delete_mark errmark#coerce
+          gbuf#delete_mark errmark#coerce
         in
-        id := Some (buf#connect#changed ~callback)
+        id := Some (gbuf#connect#changed ~callback);
       in
-      find_and_mark_error (i+1)
+      try find_and_mark_error (i+1) with Not_found -> false
     in
-    try find_and_mark_error 0 with Not_found -> ()
+    try find_and_mark_error 0 with Not_found ->
+        gbuf#move_mark buf.Buffer.eval_mark#coerce
+          ~where:(gbuf#get_iter_at_mark end_mark);
+        true
   in
   let topeval top =
     let buf = !current_buffer_ref in
@@ -138,14 +142,20 @@ let init_top_view current_buffer_ref toplevel_buffer =
             (display_top_query trimmed;
              replace_marks ();
              Top.query top phrase @@ fun response ->
-               handle_response response gbuf start_mark stop_mark;
+               let success =
+                 handle_response response buf start_mark stop_mark
+               in
                gbuf#delete_mark start_mark; (* really, not the Gc's job ? *)
                gbuf#delete_mark stop_mark;
-               eval_phrases rest)
+               if success then eval_phrases rest)
     in
     let start, stop =
       if gbuf#has_selection then gbuf#selection_bounds
-      else gbuf#start_iter, gbuf#end_iter
+      else
+        gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce,
+        match (gbuf#get_iter `INSERT)#forward_search ";;" with
+        | None -> gbuf#end_iter
+        | Some (_,b) -> b
     in
     let phrases = get_phrases start stop in
     eval_phrases phrases

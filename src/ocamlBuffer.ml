@@ -20,6 +20,7 @@ type t = {
   gbuffer: GSourceView2.source_buffer;
   view: GSourceView2.source_view;
   mutable need_reindent: bool;
+  eval_mark: GSourceView2.source_mark;
   (* mutable error_tags: GText.tag list; *)
   (* mutable indent_tags: GText.tag list; *)
 }
@@ -312,7 +313,14 @@ let create ?name ?(contents="")
   let view = mkview gbuffer in
   view#set_mark_category_pixbuf ~category:"error"
     (Some (GdkPixbuf.from_file "data/icons/err_marker.svg"));
-  let t = { filename = name; need_reindent = false; gbuffer; view } in
+  view#set_mark_category_pixbuf ~category:"eval"
+    (Some (GdkPixbuf.from_file "data/icons/eval_marker.svg"));
+  let eval_mark =
+    gbuffer#create_source_mark ~name:"eval" ~category:"eval" gbuffer#start_iter
+  in
+  let t =
+    { filename = name; need_reindent = false; gbuffer; view; eval_mark }
+  in
   let trigger_reindent () =
     if not t.need_reindent then
       (t.need_reindent <- true;
@@ -340,6 +348,16 @@ let create ?name ?(contents="")
   ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start:_ ~stop:_ ->
       trigger_reindent ()
     );
+  ignore @@ gbuffer#connect#changed
+      ~callback:(fun () ->
+          let insert = gbuffer#get_iter `INSERT
+          and eval = gbuffer#get_iter_at_mark eval_mark#coerce in
+          if insert#offset < eval#offset then
+            let where = match insert#backward_search ";;" with
+              | Some (_,a) -> a
+              | None -> gbuffer#start_iter
+            in
+            gbuffer#move_mark eval_mark#coerce ~where);
   gbuffer#end_not_undoable_action ();
   t
 
