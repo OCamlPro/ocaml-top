@@ -304,12 +304,9 @@ let create ?name ?(contents="")
   gbuffer#begin_not_undoable_action ();
   gbuffer#place_cursor ~where:gbuffer#start_iter;
   let view = mkview gbuffer in
-  view#set_mark_category_pixbuf ~category:"error" (Some (GdkPixbuf.from_file "data/err_marker.png"));
+  view#set_mark_category_pixbuf ~category:"error"
+    (Some (GdkPixbuf.from_file "data/icons/err_marker.svg"));
   let t = { filename = name; need_reindent = false; gbuffer; view } in
-  ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
-      Gui.set_window_title "%s%s" (filename_default t) @@
-        if gbuffer#modified then "*" else "");
-  unmodify t;
   let trigger_reindent () =
     if not t.need_reindent then
       (t.need_reindent <- true;
@@ -328,11 +325,15 @@ let create ?name ?(contents="")
       in
       if contains_sp 0 then trigger_reindent ()
     );
+  setup_completion t;
+  ignore @@ reindent t;
+  ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
+      Gui.set_window_title "%s%s" (filename_default t) @@
+        if gbuffer#modified then "*" else "");
+  unmodify t;
   ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start:_ ~stop:_ ->
       trigger_reindent ()
     );
-  trigger_reindent ();
-  setup_completion t;
   gbuffer#end_not_undoable_action ();
   t
 
