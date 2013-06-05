@@ -66,7 +66,7 @@ let reader_thread fdescr receive_from_main_thread build_response t =
                       terminating reader thread";
          Thread.exit ());
       let response = String.sub buf 0 nread in
-      Tools.debug "Incoming response from ocaml: %d %s" nread response;
+      (* Tools.debug "Incoming response from ocaml: %d %s" nread response; *)
       if t.status = Dead then
         (Tools.debug "Argeull";
          Thread.exit ());
@@ -147,10 +147,10 @@ let start schedule response_handler status_hook =
   in
   t.exit_hook <- (fun () ->
     List.iter Unix.close [query_fdescr; response_fdescr; error_fdescr];
-    Tools.debug "Collecting threads...";
+    (* Tools.debug "Collecting threads..."; *)
     List.iter Thread.join
       [_response_reader_thread; _error_reader_thread; _error_reader_thread];
-    Tools.debug " done"
+    (* Tools.debug " done" *)
   );
   set_status t Ready;
   t

@@ -8,7 +8,7 @@ let toplevel_buffer =
     ?language:Buffer.GSourceView_params.syntax
     ?style_scheme:Buffer.GSourceView_params.style
     ~highlight_matching_brackets:true
-    ~highlight_syntax:true
+    ~highlight_syntax:false
     ?undo_manager:None
     ~tag_table:Buffer.Tags.table
     ()

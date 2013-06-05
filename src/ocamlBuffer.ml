@@ -41,7 +41,7 @@ let set_filename buf name =
 module Tags = struct
   let phrase =
     let t = GText.tag ~name:"phrase" () in
-    t#set_property (`FOREGROUND "grey80");
+    t#set_property (`FOREGROUND "grey60");
     (* t#set_property (`BACKGROUND "black"); *)
     (* property paragraph-background colors entire line, but it
        was introduced in gtk 2.8 and isn't yet in lablgtk... *)
@@ -50,7 +50,12 @@ module Tags = struct
 
   let stdout =
     let t = GText.tag ~name:"stdout" () in
-    t#set_property (`FOREGROUND "yellow");
+    t#set_property (`FOREGROUND "#dd0");
+    t
+
+  let ocamltop =
+    let t = GText.tag ~name:"ocamltop" () in
+    t#set_property (`FOREGROUND "white");
     t
 
   let invisible =
@@ -60,13 +65,14 @@ module Tags = struct
 
   let error =
     let t = GText.tag ~name:"error" () in
-    t#set_property (`BACKGROUND "red");
+    t#set_property (`UNDERLINE `SINGLE); (* BACKGROUND "red" *)
     t
 
   let table =
     let table = GText.tag_table () in
     table#add phrase#as_tag;
     table#add stdout#as_tag;
+    table#add ocamltop#as_tag;
     table#add invisible#as_tag;
     table#add error#as_tag;
     table
