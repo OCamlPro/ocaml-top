@@ -248,8 +248,6 @@ let setup_completion buf =
                    :> GSourceView2.source_completion_proposal)
                 ) candidates
             in
-            ignore @@ context#connect#cancelled
-                ~callback:(fun () -> Tools.debug "CANCEL!");
             context#add_proposals
               (match !provider_ref with Some p -> p | None -> assert false)
               propals
@@ -257,14 +255,19 @@ let setup_completion buf =
         method matched context = Tools.debug "matched";
           is_prefix_char context#iter#backward_char#char
         method activation = [`USER_REQUESTED] (* `INTERACTIVE *)
-        method info_widget _propal = Tools.debug "info_widget"; None
-        method update_info _propal _info =  Tools.debug "update_info"; ()
+        method info_widget _propal = None
+        method update_info _propal _info = ()
         method start_iter context _propal iter =
-          Tools.debug "start_iter";
+          let start = completion_start_iter (buf.gbuffer#get_iter `INSERT) in
           (* ouch, answers by side effect on iter... *)
-          iter#nocopy#assign (completion_start_iter iter)#nocopy;
+          iter#nocopy#assign start#nocopy;
           true
-        method activate_proposal _propal _iter =  Tools.debug "activate"; false
+        method activate_proposal propal iter =
+          let pfxlen = iter#offset - (completion_start_iter iter)#offset in
+          let text = propal#text in
+          let text = String.sub text pfxlen (String.length text - pfxlen) in
+          buf.gbuffer#insert ~iter:(buf.gbuffer#get_iter `INSERT) text;
+          true
         method interactive_delay = 2
         method priority = 2
       end
