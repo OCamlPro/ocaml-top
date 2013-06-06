@@ -59,6 +59,16 @@ module Tags = struct
     t#set_property (`FOREGROUND "white");
     t
 
+  let ocamltop_err =
+    let t = GText.tag ~name:"ocamltop_err" () in
+    t#set_property (`FOREGROUND "#900");
+    t
+
+  let ocamltop_warn =
+    let t = GText.tag ~name:"ocamltop_warn" () in
+    t#set_property (`FOREGROUND "orange");
+    t
+
   let invisible =
     let t = GText.tag ~name:"invisible" () in
     t#set_property (`INVISIBLE true);
@@ -74,6 +84,8 @@ module Tags = struct
     table#add phrase#as_tag;
     table#add stdout#as_tag;
     table#add ocamltop#as_tag;
+    table#add ocamltop_err#as_tag;
+    table#add ocamltop_warn#as_tag;
     table#add invisible#as_tag;
     table#add error#as_tag;
     table
