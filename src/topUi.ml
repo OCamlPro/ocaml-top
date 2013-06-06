@@ -3,7 +3,7 @@ module Buffer = OcamlBuffer (* fixme *)
 
 let init_top_view current_buffer_ref toplevel_buffer =
   let top_view = Gui.open_toplevel_view toplevel_buffer in
-  (* marks in the top viewwhere message from different sources are
+  (* marks in the top view where message from different sources are
      printed. Useful for not mixing them, and keeping locations *)
   let stdout_mark, ocaml_mark, prompt_mark =
     let create_top_mark () =
@@ -65,7 +65,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
     let rec disp_lines = function
       | [] -> ()
       | line::rest ->
-          insert_top  ~tags:[Buffer.Tags.ocamltop] ocaml_mark line;
+          if String.length line > 0 && line.[0] = '#' then
+            insert_top ocaml_mark "\n";
+          insert_top  (* ~tags:[Buffer.Tags.ocamltop] *) ocaml_mark line;
           if rest <> [] then
             (insert_top ocaml_mark "\n";
              disp_lines rest)
@@ -74,49 +76,121 @@ let init_top_view current_buffer_ref toplevel_buffer =
     let lines = Str.split_delim delim response in
     disp_lines lines
   in
-  let handle_response response buf start_mark end_mark =
-    (* returns false on errors *)
-    let gbuf = buf.Buffer.gbuffer in
-    let error_regex =
-      Str.regexp "^Characters \\([0-9]+\\)-\\([0-9]+\\)"
+  let mark_error_in_source_buffer (gbuf:GSourceView2.source_buffer)
+      ~start ~stop =
+    let errmark = gbuf#create_source_mark ~category:"error" start in
+    gbuf#apply_tag Buffer.Tags.error ~start ~stop;
+    let mark_remover_id = ref None in
+    let callback () =
+      (match !mark_remover_id with
+       | Some id -> gbuf#misc#disconnect id
+       | None -> Tools.debug "Warning, unbound error unmarking callback";
+           raise Exit);
+      let start = gbuf#get_iter_at_mark errmark#coerce in
+      let stop = start#forward_to_tag_toggle (Some Buffer.Tags.error) in
+      gbuf#remove_tag Buffer.Tags.error ~start ~stop;
+      (* buf#remove_source_marks ~category:"error" ~start ~stop ()
+           -- may segfault sometimes (??!) *)
+      gbuf#delete_mark errmark#coerce
     in
-    let rec find_and_mark_error i =
-      let i = Str.search_forward error_regex response i in
-      let start_char, end_char =
-        int_of_string @@ Str.matched_group 1 response,
-        int_of_string @@ Str.matched_group 2 response
+    mark_remover_id := Some (gbuf#connect#changed ~callback);
+  in
+  (* Messages from the toplevel have already been printed asynchronously by
+     [display_top_response]. This function gets the mark where the message was
+     printed and the full message, now that we can do more clever stuff on it *)
+  let handle_response response response_start_mark
+      src_buf src_start_mark src_end_mark =
+    (* returns false on errors, true otherwise *)
+    let gbuf = src_buf.Buffer.gbuffer in
+    (* todo:
+       - split message (val/type/etc | error/warning | prompt)
+       - colorise each part
+       - for errors/warnings, add the marks to the source buffer
+    *)
+    let lines = Tools.string_split_chars "\r\n" response in
+    let response_iter = toplevel_buffer#get_iter_at_mark response_start_mark in
+    let first_word line =
+      let len = String.length line in
+      let rec aux i = if i >= len then i else match line.[i] with
+          | 'a'..'z' | 'A'..'Z' | '-' | '#' -> aux (i+1)
+          | _ -> i
       in
+      String.sub line 0 (aux 0)
+    in
+    let rec accumulate_until f acc = function
+      | [] -> List.rev acc, []
+      | a::r ->
+          if f a then List.rev acc, a::r
+          else accumulate_until f (a::acc) r
+    in
+    let mark_error start_char end_char =
       Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
-      let input_start = gbuf#get_iter_at_mark start_mark in
-      let start = input_start#forward_chars start_char in
-      let stop = input_start#forward_chars end_char in
-      let errmark = gbuf#create_source_mark ~category:"error" start in
-      gbuf#apply_tag Buffer.Tags.error ~start ~stop;
-      let _remove_mark =
-        let id = ref None in
-        let callback () =
-          (match !id with
-           | Some id -> gbuf#misc#disconnect id
-           | None -> Tools.debug "Warning, unbound error unmarking callback";
-               raise Exit);
-          let start = gbuf#get_iter_at_mark errmark#coerce in
-          let stop = start#forward_to_tag_toggle (Some Buffer.Tags.error) in
-          gbuf#remove_tag Buffer.Tags.error ~start ~stop;
-          (* buf#remove_source_marks ~category:"error" ~start ~stop ()
-             -- may segfault sometimes (??!) *)
-          gbuf#delete_mark errmark#coerce
-        in
-        id := Some (gbuf#connect#changed ~callback);
-      in
-      try find_and_mark_error (i+1) with Not_found -> false
+      (* mark in the source buffer *)
+      let input_start = gbuf#get_iter_at_mark src_start_mark in
+      mark_error_in_source_buffer gbuf
+        ~start:(input_start#forward_chars start_char)
+        ~stop:(input_start#forward_chars end_char);
     in
-    try find_and_mark_error 0 with Not_found -> true
+    let rec parse_response success iter = function
+      | [] -> success
+      | line::lines ->
+          match first_word line with
+          | "val" | "type" | "exception" | "module" | "class"
+          | "-" | "Exception" as word
+            ->
+              let msg, rest =
+                accumulate_until
+                  (fun s -> String.length s = 0 || s.[0] <> ' ')
+                  [line] lines
+              in
+              let success = success && word <> "Exception" in
+              (* Syntax coloration is set by default in the buffer *)
+              parse_response success (iter#forward_lines (List.length msg)) rest
+          | "Characters" -> (* beginning of an error/warning message *)
+              let msg1, rest =
+                accumulate_until
+                  (fun line -> match first_word line with
+                     | "Error" | "Warning" -> true
+                     | _ -> false)
+                  [line] lines
+              in
+              let msg2, rest =
+                match rest with
+                | line::lines ->
+                    accumulate_until
+                      (fun s -> String.length s = 0 || s.[0] <> ' ')
+                      [line] lines
+                | [] -> [], []
+              in
+              let _ =
+                try Scanf.sscanf line "Characters %d-%d" mark_error
+                with Scanf.Scan_failure _ | End_of_file ->
+                    Tools.debug "OCaml err message parsing failure: %s" line
+              in
+              let stop =
+                iter#forward_lines (List.length msg1 + List.length msg2)
+              in
+              (* mark in the ocaml buffer *)
+              toplevel_buffer#apply_tag Buffer.Tags.ocamltop_err
+                ~start:iter ~stop;
+              parse_response false stop rest
+          | _ ->
+              (* Other messages: override syntax highlighting *)
+              let stop = iter#forward_line in
+              toplevel_buffer#apply_tag Buffer.Tags.ocamltop
+                ~start:iter ~stop;
+              parse_response success stop lines
+    in
+    parse_response true response_iter lines
   in
   let topeval top =
     let buf = !current_buffer_ref in
     let gbuf = buf.Buffer.gbuffer in
     let rec get_phrases (start:GText.iter) (stop:GText.iter) =
       match start#forward_search ~limit:stop ";;" with
+      (* TODO: parse comments/strings to ignore ';;' within strings and
+         comments, and check that we don't send an unterminated block to the
+         toplevel (after we do that, the only option is to press "Stop") *)
       | Some (a,b) ->
           (gbuf#get_text ~start ~stop:a (),
            Buffer.get_indented_text ~start ~stop:a buf,
@@ -134,7 +208,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
         true,
         let eval_point = gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce in
         let point = gbuf#get_iter `INSERT in
-        let next_point = match point#forward_search ";;" with
+        let next_point = match (point#backward_chars 2)#forward_search ";;" with
           | None -> gbuf#end_iter
           | Some (_,b) -> b
         in
@@ -158,10 +232,17 @@ let init_top_view current_buffer_ref toplevel_buffer =
           else
             (display_top_query trimmed;
              replace_marks ();
+             let response_start_mark =
+               `MARK
+                 (toplevel_buffer#create_mark
+                    (toplevel_buffer#get_iter_at_mark ocaml_mark))
+             in
              Top.query top phrase @@ fun response ->
                let success =
-                 handle_response response buf start_mark stop_mark
+                 handle_response response response_start_mark
+                   buf start_mark stop_mark
                in
+               toplevel_buffer#delete_mark response_start_mark;
                (* fixme: if the code has been edited in the meantime,
                   we still move the mark... *)
                let start = gbuf#get_iter_at_mark start_mark in
