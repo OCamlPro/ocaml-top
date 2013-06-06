@@ -187,6 +187,7 @@ let contents buf =
     ~start:buf.gbuffer#start_iter ~stop:buf.gbuffer#end_iter
     buf
 
+(* WORK IN PROGRESS: this works but can trigger SEGFAULTS ! *)
 let setup_completion buf =
   let lib_index =
     (* temporary *)
@@ -332,7 +333,7 @@ let create ?name ?(contents="")
          t.need_reindent <- false;
          false)
   in
-  ignore @@ gbuffer#connect#insert_text ~callback:(fun iter text ->
+  ignore @@ gbuffer#connect#after#insert_text ~callback:(fun iter text ->
       let rec contains_sp i =
         if i >= String.length text then false
         else match text.[i] with
@@ -361,6 +362,11 @@ let create ?name ?(contents="")
               | None -> gbuffer#start_iter
             in
             gbuffer#move_mark eval_mark#coerce ~where);
+  (* TODO:
+     - forbid pasting of styled text from the top to the text buffer
+     (discard style) ; lablgtk doesn't seem to bind the functions needed to do
+     this :/
+  *)
   gbuffer#end_not_undoable_action ();
   t
 

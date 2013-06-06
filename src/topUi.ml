@@ -162,6 +162,8 @@ let init_top_view current_buffer_ref toplevel_buffer =
                let success =
                  handle_response response buf start_mark stop_mark
                in
+               (* fixme: if the code has been edited in the meantime,
+                  we still move the mark... *)
                let start = gbuf#get_iter_at_mark start_mark in
                let stop = gbuf#get_iter_at_mark stop_mark in
                if should_update_eval_mark then
@@ -188,7 +190,12 @@ let init_top_view current_buffer_ref toplevel_buffer =
       | Top.Message m -> display_top_response m
       | Top.User u -> display_stdout u
       | Top.Exited ->
-          toplevel_buffer#insert ~iter:toplevel_buffer#end_iter
+          let buf = !current_buffer_ref in
+          buf.Buffer.gbuffer#move_mark
+            buf.Buffer.eval_mark#coerce ~where:buf.Buffer.gbuffer#start_iter;
+          toplevel_buffer#insert
+            ~tags:[Buffer.Tags.ocamltop_warn]
+            ~iter:toplevel_buffer#end_iter
             "\t\t*** restarting ocaml ***\n";
     in
     replace_marks ();
