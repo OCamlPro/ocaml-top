@@ -24,7 +24,7 @@ module Controls = struct
       | `QUIT -> "quit"
     in
     let file = Printf.sprintf "data/icons/%s.svg" name in
-    let pixbuf = GdkPixbuf.from_file_at_size file ~width:24 ~height:24 in
+    let pixbuf = GdkPixbuf.from_file_at_size file ~width:22 ~height:22 in
     let img = GMisc.image ~pixbuf () in
     img
 

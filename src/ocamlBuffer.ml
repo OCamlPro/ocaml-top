@@ -315,9 +315,9 @@ let create ?name ?(contents="")
   gbuffer#place_cursor ~where:gbuffer#start_iter;
   let view = mkview gbuffer in
   view#set_mark_category_pixbuf ~category:"error"
-    (Some (GdkPixbuf.from_file "data/icons/err_marker.svg"));
+    (Some (GdkPixbuf.from_file "data/icons/err_marker.png"));
   view#set_mark_category_pixbuf ~category:"eval"
-    (Some (GdkPixbuf.from_file "data/icons/eval_marker.svg"));
+    (Some (GdkPixbuf.from_file "data/icons/eval_marker.png"));
   let eval_mark =
     gbuffer#create_source_mark ~name:"eval" ~category:"eval" gbuffer#start_iter
   in
