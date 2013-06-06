@@ -126,14 +126,24 @@ let init_top_view current_buffer_ref toplevel_buffer =
            Buffer.get_indented_text ~start ~stop buf,
            `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
     in
-    let (start, stop), should_update_eval_mark =
-      if gbuf#has_selection then gbuf#selection_bounds, false
+    let should_update_eval_mark, (start, stop) =
+      if gbuf#has_selection then false, gbuf#selection_bounds
       else
-        (gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce,
-         match (gbuf#get_iter `INSERT)#forward_search ";;" with
-         | None -> gbuf#end_iter
-         | Some (_,b) -> b),
-        true
+        true,
+        let eval_point = gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce in
+        let point = gbuf#get_iter `INSERT in
+        let next_point = match point#forward_search ";;" with
+          | None -> gbuf#end_iter
+          | Some (_,b) -> b
+        in
+        if eval_point#offset < point#offset then
+          eval_point, next_point
+        else
+          let last_point = match point#backward_search ";;" with
+          | None -> gbuf#start_iter
+          | Some (_,b) -> b
+          in
+          last_point, next_point
     in
     let rec eval_phrases = function
       | [] -> ()
@@ -153,7 +163,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
                if success && should_update_eval_mark then
                  gbuf#move_mark buf.Buffer.eval_mark#coerce
                    ~where:(gbuf#get_iter_at_mark stop_mark);
-               gbuf#delete_mark start_mark; (* really, not the Gc's job ? *)
+               gbuf#delete_mark start_mark;
                gbuf#delete_mark stop_mark;
                if success then eval_phrases rest)
     in
