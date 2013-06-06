@@ -46,6 +46,7 @@
     <style id="label" _name="Labeled argument" map-to="def:type"/>
     <style id="poly-variant" _name="Polymorphic Variant" map-to="def:type"/>
     <style id="variant" _name="Variant Constructor" map-to="def:type"/>
+    <style id="operator" _name="Prefix or infix operator" map-to="def:operator"/>
     <style id="type-var" _name="Type Variable" map-to="def:type"/>
     <style id="module" _name="Module Path" map-to="def:type"/>
     <style id="escape" _name="Escaped Character" map-to="def:special-char"/>
@@ -58,6 +59,7 @@
     <define-regex id="cap-ident">\b[A-Z][A-Za-z0-9_']*</define-regex>
     <define-regex id="low-ident">\b[a-z][A-Za-z0-9_']*</define-regex>
     <define-regex id="char-esc">\\((\\|"|'|n|t|b|r)|[0-9]{3}|x[0-9a-fA-F]{2})</define-regex>
+    <define-regex id="operator">[!$%&amp;*+-./:&lt;=>?@^|~]*</define-regex>
 
     <context id="escape-seq" style-ref="escape">
       <match>\%{char-esc}</match>
@@ -115,6 +117,18 @@
 	<context id="character-constant" style-ref="string">
 	  <match>('\%{char-esc}')|('[^\\']')</match>
 	</context>
+        <context id="operator" style-ref="operator">
+          <match>\%{operator}</match>
+        </context>
+        <context id="builtin-operators" style-ref="operator">
+          <keyword>asr</keyword>
+          <keyword>land</keyword>
+          <keyword>lor</keyword>
+          <keyword>lsl</keyword>
+          <keyword>lsr</keyword>
+          <keyword>lxor</keyword>
+          <keyword>mod</keyword>
+        </context>
 	<context id="type-var" style-ref="type-var">
 	  <match>'\%{low-ident}</match>
 	</context>
@@ -194,15 +208,15 @@
 	</context>
 	<context id="function-keywords" style-ref="fun-keyword">
 	  <!-- function-like keywords -->
-	  <keyword>asr</keyword>
-	  <keyword>land</keyword>
+	  <!-- <keyword>asr</keyword> -->
+	  <!-- <keyword>land</keyword> -->
 	  <keyword>lazy</keyword>
-	  <keyword>lor</keyword>
-	  <keyword>lsl</keyword>
-	  <keyword>lsr</keyword>
-	  <keyword>lxor</keyword>
-	  <keyword>mod</keyword>
-	  <keyword>or</keyword>
+	  <!-- <keyword>lor</keyword> -->
+	  <!-- <keyword>lsl</keyword> -->
+	  <!-- <keyword>lsr</keyword> -->
+	  <!-- <keyword>lxor</keyword> -->
+	  <!-- <keyword>mod</keyword> -->
+	  <!-- <keyword>or</keyword> -->
 	  <!-- from pervasives, but same as others -->
 	  <keyword>lnot</keyword>
 	</context>

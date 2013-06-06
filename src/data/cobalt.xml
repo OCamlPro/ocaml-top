@@ -51,11 +51,11 @@
 
   <!-- Global Settings -->
 
-  <style name="text"                        foreground="white" background="dark_blue"/>
+  <style name="text"                        foreground="pale_grey" background="black_blue"/>
   <style name="selection"                   foreground="white" background="sky_blue"/>
   <style name="cursor"                      foreground="white"/>
   <style name="current-line"                background="medium_blue"/>
-  <style name="line-numbers"                foreground="light_blue" background="black_blue"/>
+  <style name="line-numbers"                foreground="light_blue" background="dark_blue"/>
   <style name="draw-spaces"                 foreground="bluish_grey"/>
   
   <!-- Bracket Matching -->
@@ -90,6 +90,7 @@
 
   <!-- Statements -->
   <style name="def:statement"               foreground="bright_orange"/>
+  <style name="def:operator"                foreground="steelblue3"/>
 
   <!-- Types -->
   <style name="def:type"                    foreground="teal_blue"/>
