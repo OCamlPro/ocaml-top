@@ -54,7 +54,7 @@
   <style name="text"                        foreground="pale_grey" background="black_blue"/>
   <style name="selection"                   foreground="white" background="sky_blue"/>
   <style name="cursor"                      foreground="white"/>
-  <style name="current-line"                background="medium_blue"/>
+  <style name="current-line"                background="dark_blue"/>
   <style name="line-numbers"                foreground="light_blue" background="dark_blue"/>
   <style name="draw-spaces"                 foreground="bluish_grey"/>
   
@@ -69,7 +69,7 @@
   <style name="bookmark"                    background="white"/>
 
   <!-- Comments -->
-  <style name="def:comment"                 foreground="sky_blue" italic="true"/>
+  <style name="def:comment"                 foreground="bluish_grey" italic="true"/>
   <style name="def:shebang"                 foreground="sky_blue" italic="true"/>
   <style name="def:doc-comment-element"     bold="true"/>
 
@@ -78,8 +78,8 @@
   <style name="def:string"                  foreground="spring_green"/>
   <style name="def:special-char"            foreground="light_grey"/>
   <style name="def:special-constant"        foreground="nail_polish_pink" bold="true"/>
-  <style name="def:number"                  foreground="nail_polish_pink"/>
-  <style name="def:floating-point"          foreground="nail_polish_pink"/>
+  <style name="def:number"                  foreground="pale_grey"/>
+  <style name="def:complex"                 foreground="#cc4422"/>
   <style name="def:keyword"                 foreground="bright_orange" bold="true"/>
   <style name="def:builtin"                 foreground="bright_orange" bold="true"/>
   <style name="def:variable"                foreground="light_grey"/>

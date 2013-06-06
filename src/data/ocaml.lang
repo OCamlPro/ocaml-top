@@ -47,6 +47,7 @@
     <style id="poly-variant" _name="Polymorphic Variant" map-to="def:type"/>
     <style id="variant" _name="Variant Constructor" map-to="def:type"/>
     <style id="operator" _name="Prefix or infix operator" map-to="def:operator"/>
+    <style id="parens" _name="Delimiters like parens, brackets etc." map-to="def:complex"/>
     <style id="type-var" _name="Type Variable" map-to="def:type"/>
     <style id="module" _name="Module Path" map-to="def:type"/>
     <style id="escape" _name="Escaped Character" map-to="def:special-char"/>
@@ -94,6 +95,21 @@
 	    <context ref="def:in-comment:*"/>
 	  </include>
 	</context>
+	<context id="decimal" style-ref="decimal">
+	  <match>[-]?[0-9][0-9_]*[lLn]?</match>
+	</context>
+	<context id="hex-number" style-ref="base-n-integer">
+	  <match>[-]?0[xX][0-9A-Fa-f][0-9A-Fa-f_]*[lL]?</match>
+	</context>
+	<context id="octal-number" style-ref="base-n-integer">
+	  <match>[-]?0[oO][0-7][0-7_]*[lL]?</match>
+	</context>
+	<context id="binary-number" style-ref="base-n-integer">
+	  <match>[-]?0[bB][01][01_]*[lL]?</match>
+	</context>
+	<context id="floating-point-number" style-ref="floating-point">
+	  <match>[-]?[0-9][0-9_]*(\.[0-9_]*)?([Ee][+-]?[0-9][0-9_]*)?</match>
+	</context>
 	<context id="label" style-ref="label">
 	  <match>[~?]\%{low-ident}</match>
 	</context>
@@ -128,6 +144,9 @@
           <keyword>lsr</keyword>
           <keyword>lxor</keyword>
           <keyword>mod</keyword>
+        </context>
+        <context id="parens" style-ref="parens">
+          <match>[][(){}]|\[\||\|\]</match>
         </context>
 	<context id="type-var" style-ref="type-var">
 	  <match>'\%{low-ident}</match>

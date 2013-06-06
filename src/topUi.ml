@@ -62,81 +62,17 @@ let init_top_view current_buffer_ref toplevel_buffer =
     disp_lines lines
   in
   let display_top_response response =
-    let rec gather_indented acc = function
-      | line::rest when String.length line = 0 || line.[0] = ' ' ->
-          gather_indented (line::acc) rest
-      | lines -> List.rev acc, lines
-    in
-    let first_word s =
-      let len = String.length s in
-      let rec aux i = if i >= len then len else match s.[i] with
-          | 'a'..'z' | 'A'..'Z' -> aux (i+1)
-          | _ -> i
-      in
-      String.sub s 0 (aux 0)
-    in
-    let rec disp_lines ?(first=false) = function
+    let rec disp_lines = function
       | [] -> ()
       | line::rest ->
-          if not first then insert_top ocaml_mark "\n";
-          if String.length line > 0 && line.[0] <> ' ' then
-            match first_word line with
-            | "Characters" ->
-                let msg, rest = gather_indented [line] rest in
-                let tags =
-                  match rest with
-                  | [] -> []
-                  | line::rest -> match first_word line with
-                    | "Error" -> [Buffer.Tags.ocamltop_err]
-                    | "Warning" -> [Buffer.Tags.ocamltop_warn]
-                    | s ->
-                        Tools.debug "Unknown ocaml message type after \
-                                     'Characters x-x ...' : %S" s;
-                        []
-                in
-                insert_top  ~tags:(Buffer.Tags.ocamltop :: tags)
-                  ocaml_mark (String.concat "\n" msg);
-                disp_lines rest
-            | "val" | "type" | "exception" | "module" | "class" ->
-                let start_mark =
-                  `MARK
-                    (toplevel_buffer#create_mark
-                       (toplevel_buffer#get_iter_at_mark ocaml_mark))
-                in
-                let msg, rest = gather_indented [line] rest in
-                insert_top (* ~tags:(Buffer.Tags.ocamltop :: tags) *)
-                  ocaml_mark (String.concat "\n" msg);
-                toplevel_buffer#ensure_highlight
-                  ~start:(toplevel_buffer#get_iter_at_mark start_mark)
-                  ~stop:(toplevel_buffer#get_iter_at_mark ocaml_mark);
-                toplevel_buffer#delete_mark start_mark;
-                disp_lines rest
-            | "Error" | "Warning" ->
-                let msg, rest = gather_indented [line] rest in
-                let tags = match first_word line with
-                  | "Error" -> [Buffer.Tags.ocamltop_err]
-                  | "Warning" -> [Buffer.Tags.ocamltop_warn]
-                  | _ -> assert false
-                in
-                insert_top  ~tags:(Buffer.Tags.ocamltop :: tags)
-                  ocaml_mark (String.concat "\n" msg);
-                disp_lines rest
-            | word ->
-                Tools.debug
-                  "Ununderstood ocaml message starting with %S"
-                  word;
-                insert_top  ~tags:[Buffer.Tags.ocamltop] ocaml_mark line;
-                disp_lines rest
-          else
-            let _ =
-              Tools.debug "Suspicious indented line in ocaml output: %S" line
-            in
-            insert_top  ~tags:[Buffer.Tags.ocamltop] ocaml_mark line;
-            disp_lines rest
+          insert_top  ~tags:[Buffer.Tags.ocamltop] ocaml_mark line;
+          if rest <> [] then
+            (insert_top ocaml_mark "\n";
+             disp_lines rest)
     in
     let delim = Str.regexp "\r?\n" in
     let lines = Str.split_delim delim response in
-    disp_lines ~first:true lines
+    disp_lines lines
   in
   let handle_response response buf start_mark end_mark =
     (* returns false on errors *)
