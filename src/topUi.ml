@@ -203,9 +203,13 @@ let init_top_view current_buffer_ref toplevel_buffer =
     | Some top -> Top.stop top
     | None -> ());
   Gui.Controls.bind `RESTART (fun () ->
-    match !top_ref with
-    | Some top -> Top.kill top
-    | None -> ());
+      toplevel_buffer#delete
+        ~start:toplevel_buffer#start_iter
+        ~stop:toplevel_buffer#end_iter;
+      match !top_ref with
+      | Some top ->
+          Top.kill top
+      | None -> ());
   Gui.Controls.bind `CLEAR (fun () ->
     toplevel_buffer#delete
       ~start:toplevel_buffer#start_iter

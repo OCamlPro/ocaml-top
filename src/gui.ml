@@ -131,7 +131,7 @@ let main_window =
           mkbutton `EXECUTE;
           mkbutton `STOP;
           mkbutton `RESTART;
-          mkbutton `CLEAR;
+          (* mkbutton `CLEAR; *)
           (GButton.separator_tool_item () :> GObj.widget);
           mkbutton `QUIT;
         ]
