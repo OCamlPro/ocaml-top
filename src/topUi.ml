@@ -75,6 +75,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
     disp_lines lines
   in
   let handle_response response buf start_mark end_mark =
+    (* returns false on errors *)
     let gbuf = buf.Buffer.gbuffer in
     let error_regex =
       Str.regexp "^Characters \\([0-9]+\\)-\\([0-9]+\\)"
@@ -127,7 +128,8 @@ let init_top_view current_buffer_ref toplevel_buffer =
            `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
     in
     let should_update_eval_mark, (start, stop) =
-      if gbuf#has_selection then false, gbuf#selection_bounds
+      if gbuf#has_selection then
+        false, gbuf#selection_bounds
       else
         true,
         let eval_point = gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce in
@@ -160,9 +162,12 @@ let init_top_view current_buffer_ref toplevel_buffer =
                let success =
                  handle_response response buf start_mark stop_mark
                in
-               if success && should_update_eval_mark then
-                 gbuf#move_mark buf.Buffer.eval_mark#coerce
-                   ~where:(gbuf#get_iter_at_mark stop_mark);
+               let start = gbuf#get_iter_at_mark start_mark in
+               let stop = gbuf#get_iter_at_mark stop_mark in
+               if should_update_eval_mark then
+                 gbuf#move_mark
+                   buf.Buffer.eval_mark#coerce
+                   ~where:(if success then stop else start);
                gbuf#delete_mark start_mark;
                gbuf#delete_mark stop_mark;
                if success then eval_phrases rest)
