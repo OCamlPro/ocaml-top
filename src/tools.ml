@@ -35,7 +35,7 @@ let recover_error fmt =
 module File = struct
 
   let load filename k =
-    debug "Attempting to load %s" filename;
+    debug "Loading %s" filename;
     let contents =
       try
         let size = (Unix.stat filename).Unix.st_size in

@@ -61,7 +61,7 @@ module Tags = struct
 
   let ocamltop_err =
     let t = GText.tag ~name:"ocamltop_err" () in
-    t#set_property (`FOREGROUND "#900");
+    t#set_property (`FOREGROUND "#e44");
     t
 
   let ocamltop_warn =
