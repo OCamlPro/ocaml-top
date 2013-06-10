@@ -307,6 +307,15 @@ let setup_completion buf =
   ));
   ()
 
+(* Todo: these should be sensitive to comments and strings (evaluating with ';;'
+   in a comment will just lock the toplevel...). I couldn't find a way to do
+   that by reading the syntax hilighting tags. *)
+let next_end_of_phrase ?(limit: GText.iter option) (iter: GText.iter) =
+  iter#forward_search ?limit ";;"
+
+let last_end_of_phrase ?(limit: GText.iter option) (iter: GText.iter) =
+  iter#backward_search ?limit ";;"
+
 let create ?name ?(contents="")
     (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
   let gbuffer =
@@ -378,7 +387,7 @@ let create ?name ?(contents="")
           let replace_before_cursor mark =
             let iter = gbuffer#get_iter_at_mark mark#coerce in
             if insert#offset < iter#offset then
-              let where = match insert#backward_search ";;" with
+              let where = match last_end_of_phrase insert with
                 | Some (_,a) -> a
                 | None -> gbuffer#start_iter
               in

@@ -132,10 +132,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
     let buf = !current_buffer_ref in
     let gbuf = buf.Buffer.gbuffer in
     let rec get_phrases (start:GText.iter) (stop:GText.iter) =
-      match start#forward_search ~limit:stop ";;" with
-      (* TODO: parse comments/strings to ignore ';;' within strings and
-         comments, and check that we don't send an unterminated block to the
-         toplevel (after we do that, the only option is to press "Stop") *)
+      match Buffer.next_end_of_phrase ~limit:stop start with
       | Some (a,b) ->
           (gbuf#get_text ~start ~stop:a (),
            Buffer.get_indented_text ~start ~stop:a buf,
@@ -155,10 +152,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
         let point = gbuf#get_iter `INSERT in
         let next_point =
           match
-            (point#backward_find_char (fun c ->
-                 not (Glib.Unichar.isspace c || c = Glib.Utf8.first_char ";")
-               ))
-            # forward_search ";;"
+            Buffer.next_end_of_phrase
+              (point#backward_find_char @@ fun c ->
+                  not (Glib.Unichar.isspace c || c = Glib.Utf8.first_char ";"))
           with
           | None -> gbuf#end_iter
           | Some (_,b) -> b
@@ -167,7 +163,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
         if eval_point#offset < point#offset then
           eval_point, next_point
         else
-          let last_point = match point#backward_search ";;" with
+          let last_point = match Buffer.last_end_of_phrase point with
             | None -> gbuf#start_iter
             | Some (_,b) -> b
           in
