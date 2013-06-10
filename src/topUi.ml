@@ -3,7 +3,7 @@ module Buffer = OcamlBuffer (* fixme *)
 
 let init_top_view current_buffer_ref toplevel_buffer =
   let top_view = Gui.open_toplevel_view toplevel_buffer in
-  (* marks in the top viewwhere message from different sources are
+  (* marks in the top view where message from different sources are
      printed. Useful for not mixing them, and keeping locations *)
   let stdout_mark, ocaml_mark, prompt_mark =
     let create_top_mark () =
@@ -95,6 +95,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
     in
     mark_remover_id := Some (gbuf#connect#changed ~callback);
   in
+  (* Messages from the toplevel have already been printed asynchronously by
+     [display_top_response]. This function gets the mark where the message was
+     printed and the full message, now that we can do more clever stuff on it *)
   let handle_response response response_start_mark
       src_buf src_start_mark src_end_mark =
     (* returns false on errors, true otherwise *)
@@ -104,29 +107,81 @@ let init_top_view current_buffer_ref toplevel_buffer =
        - colorise each part
        - for errors/warnings, add the marks to the source buffer
     *)
-    let error_regex =
-      Str.regexp "^Characters \\([0-9]+\\)-\\([0-9]+\\)"
-    in
-    let rec find_and_mark_error i =
-      let i = Str.search_forward error_regex response i in
-      let start_char, end_char =
-        int_of_string @@ Str.matched_group 1 response,
-        int_of_string @@ Str.matched_group 2 response
+    let lines = Tools.string_split_chars "\r\n" response in
+    let response_iter = toplevel_buffer#get_iter_at_mark response_start_mark in
+    let first_word line =
+      let len = String.length line in
+      let rec aux i = if i >= len then i else match line.[i] with
+          | 'a'..'z' | 'A'..'Z' | '-' | '#' -> aux (i+1)
+          | _ -> i
       in
+      String.sub line 0 (aux 0)
+    in
+    let rec accumulate_until f acc = function
+      | [] -> List.rev acc, []
+      | a::r ->
+          if f a then List.rev acc, a::r
+          else accumulate_until f (a::acc) r
+    in
+    let mark_error start_char end_char =
       Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
-      (* mark in the ocaml buffer *)
-      let top_start = toplevel_buffer#get_iter_at_mark response_start_mark in
-      toplevel_buffer#apply_tag Buffer.Tags.ocamltop_err
-        ~start:top_start
-        ~stop:(toplevel_buffer#get_iter_at_mark ocaml_mark);
       (* mark in the source buffer *)
       let input_start = gbuf#get_iter_at_mark src_start_mark in
       mark_error_in_source_buffer gbuf
         ~start:(input_start#forward_chars start_char)
         ~stop:(input_start#forward_chars end_char);
-      try find_and_mark_error (i+1) with Not_found -> false
     in
-    try find_and_mark_error 0 with Not_found -> true
+    let rec parse_response success iter = function
+      | [] -> success
+      | line::lines ->
+          match first_word line with
+          | "val" | "type" | "exception" | "module" | "class"
+          | "-" | "Exception" as word
+            ->
+              let msg, rest =
+                accumulate_until
+                  (fun s -> String.length s = 0 || s.[0] <> ' ')
+                  [line] lines
+              in
+              let success = success && word <> "Exception" in
+              (* Syntax coloration is set by default in the buffer *)
+              parse_response success (iter#forward_lines (List.length msg)) rest
+          | "Characters" -> (* beginning of an error/warning message *)
+              let msg1, rest =
+                accumulate_until
+                  (fun line -> match first_word line with
+                     | "Error" | "Warning" -> true
+                     | _ -> false)
+                  [line] lines
+              in
+              let msg2, rest =
+                match rest with
+                | line::lines ->
+                    accumulate_until
+                      (fun s -> String.length s = 0 || s.[0] <> ' ')
+                      [line] lines
+                | [] -> [], []
+              in
+              let _ =
+                try Scanf.sscanf line "Characters %d-%d" mark_error
+                with Scanf.Scan_failure _ | End_of_file ->
+                    Tools.debug "OCaml err message parsing failure: %s" line
+              in
+              let stop =
+                iter#forward_lines (List.length msg1 + List.length msg2)
+              in
+              (* mark in the ocaml buffer *)
+              toplevel_buffer#apply_tag Buffer.Tags.ocamltop_err
+                ~start:iter ~stop;
+              parse_response false stop rest
+          | _ ->
+              (* Other messages: override syntax highlighting *)
+              let stop = iter#forward_line in
+              toplevel_buffer#apply_tag Buffer.Tags.ocamltop
+                ~start:iter ~stop;
+              parse_response success stop lines
+    in
+    parse_response true response_iter lines
   in
   let topeval top =
     let buf = !current_buffer_ref in
