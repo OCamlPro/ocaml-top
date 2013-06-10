@@ -60,7 +60,7 @@
     <define-regex id="cap-ident">\b[A-Z][A-Za-z0-9_']*</define-regex>
     <define-regex id="low-ident">\b[a-z][A-Za-z0-9_']*</define-regex>
     <define-regex id="char-esc">\\((\\|"|'|n|t|b|r)|[0-9]{3}|x[0-9a-fA-F]{2})</define-regex>
-    <define-regex id="operator">[!$%&amp;*+-./:&lt;=>?@^|~;]*</define-regex>
+    <define-regex id="operator">[!$%&amp;*+-./:&lt;=>?@^|~;#]*</define-regex>
 
     <context id="escape-seq" style-ref="escape">
       <match>\%{char-esc}</match>
