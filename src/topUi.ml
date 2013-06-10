@@ -139,7 +139,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
       | Some (a,b) ->
           (gbuf#get_text ~start ~stop:a (),
            Buffer.get_indented_text ~start ~stop:a buf,
-           `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark a))
+           `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark b))
           :: get_phrases b stop
       | None ->
           [gbuf#get_text ~start ~stop (),
