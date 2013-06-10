@@ -21,6 +21,7 @@ type t = {
   view: GSourceView2.source_view;
   mutable need_reindent: bool;
   eval_mark: GSourceView2.source_mark;
+  eval_mark_end: GSourceView2.source_mark;
   (* mutable error_tags: GText.tag list; *)
   (* mutable indent_tags: GText.tag list; *)
 }
@@ -331,11 +332,18 @@ let create ?name ?(contents="")
     (Some (GdkPixbuf.from_file "data/icons/err_marker.png"));
   view#set_mark_category_pixbuf ~category:"eval"
     (Some (GdkPixbuf.from_file "data/icons/eval_marker.png"));
+  view#set_mark_category_pixbuf ~category:"eval_next" None;
+    (* (Some (GdkPixbuf.from_file "data/icons/eval_marker_next.png")); *)
   let eval_mark =
     gbuffer#create_source_mark ~name:"eval" ~category:"eval" gbuffer#start_iter
   in
+  let eval_mark_end =
+    gbuffer#create_source_mark ~name:"eval_next" ~category:"eval_next"
+      gbuffer#start_iter
+  in
   let t =
-    { filename = name; need_reindent = false; gbuffer; view; eval_mark }
+    { filename = name; need_reindent = false; gbuffer; view;
+      eval_mark; eval_mark_end; }
   in
   let trigger_reindent () =
     if not t.need_reindent then
@@ -366,14 +374,18 @@ let create ?name ?(contents="")
     );
   ignore @@ gbuffer#connect#changed
       ~callback:(fun () ->
-          let insert = gbuffer#get_iter `INSERT
-          and eval = gbuffer#get_iter_at_mark eval_mark#coerce in
-          if insert#offset < eval#offset then
-            let where = match insert#backward_search ";;" with
-              | Some (_,a) -> a
-              | None -> gbuffer#start_iter
-            in
-            gbuffer#move_mark eval_mark#coerce ~where);
+          let insert = gbuffer#get_iter `INSERT in
+          let replace_before_cursor mark =
+            let iter = gbuffer#get_iter_at_mark mark#coerce in
+            if insert#offset < iter#offset then
+              let where = match insert#backward_search ";;" with
+                | Some (_,a) -> a
+                | None -> gbuffer#start_iter
+              in
+              gbuffer#move_mark mark#coerce ~where
+          in
+          replace_before_cursor eval_mark;
+          replace_before_cursor eval_mark_end);
   (* TODO:
      - forbid pasting of styled text from the top to the text buffer
      (discard style) ; lablgtk doesn't seem to bind the functions needed to do

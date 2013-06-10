@@ -208,52 +208,79 @@ let init_top_view current_buffer_ref toplevel_buffer =
         true,
         let eval_point = gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce in
         let point = gbuf#get_iter `INSERT in
-        let next_point = match (point#backward_chars 2)#forward_search ";;" with
+        let next_point =
+          match
+            (point#backward_find_char (fun c ->
+                 not (Glib.Unichar.isspace c || c = Glib.Utf8.first_char ";")
+               ))
+            # forward_search ";;"
+          with
           | None -> gbuf#end_iter
           | Some (_,b) -> b
         in
+        gbuf#move_mark buf.Buffer.eval_mark_end#coerce ~where:next_point;
         if eval_point#offset < point#offset then
           eval_point, next_point
         else
           let last_point = match point#backward_search ";;" with
-          | None -> gbuf#start_iter
-          | Some (_,b) -> b
+            | None -> gbuf#start_iter
+            | Some (_,b) -> b
           in
           last_point, next_point
     in
+    let cleanup_source_marks phrases =
+      List.iter (fun (_,_,start_mark,stop_mark) ->
+          gbuf#delete_mark start_mark;
+          gbuf#delete_mark stop_mark)
+        phrases
+    in
     let rec eval_phrases = function
       | [] -> ()
-      | (phrase,indented,start_mark,stop_mark) :: rest ->
-          let trimmed = String.trim indented in
-          if trimmed = "" then
-            (gbuf#delete_mark start_mark;
-             gbuf#delete_mark stop_mark;
-             eval_phrases rest)
-          else
-            (display_top_query trimmed;
-             replace_marks ();
-             let response_start_mark =
-               `MARK
-                 (toplevel_buffer#create_mark
-                    (toplevel_buffer#get_iter_at_mark ocaml_mark))
-             in
-             Top.query top phrase @@ fun response ->
-               let success =
-                 handle_response response response_start_mark
-                   buf start_mark stop_mark
-               in
-               toplevel_buffer#delete_mark response_start_mark;
-               (* fixme: if the code has been edited in the meantime,
-                  we still move the mark... *)
-               let start = gbuf#get_iter_at_mark start_mark in
-               let stop = gbuf#get_iter_at_mark stop_mark in
-               if should_update_eval_mark then
-                 gbuf#move_mark
-                   buf.Buffer.eval_mark#coerce
-                   ~where:(if success then stop else start);
+      | (_,_,_,stop_mark) :: _ as phrases
+        when should_update_eval_mark &&
+             (gbuf#get_iter_at_mark stop_mark)#offset >
+             (gbuf#get_iter_at_mark buf.Buffer.eval_mark_end#coerce)#offset
+        ->
+          (* eval_end has been moved back, meaning the code was just edited *)
+          cleanup_source_marks phrases
+      | (_,indented,start_mark,stop_mark) :: rest
+        when String.trim indented = ""
+        ->
+          gbuf#delete_mark start_mark;
+          gbuf#delete_mark stop_mark;
+          eval_phrases rest
+      | (phrase,indented,start_mark,stop_mark) :: rest as phrases ->
+          display_top_query (String.trim indented);
+          replace_marks ();
+          let response_start_mark =
+            `MARK
+              (toplevel_buffer#create_mark
+                 (toplevel_buffer#get_iter_at_mark ocaml_mark))
+          in
+          Top.query top phrase @@ fun response ->
+            let success =
+              handle_response response response_start_mark
+                buf start_mark stop_mark
+            in
+            toplevel_buffer#delete_mark response_start_mark;
+            if (gbuf#get_iter_at_mark stop_mark)#offset >
+               (gbuf#get_iter_at_mark buf.Buffer.eval_mark_end#coerce)#offset
+            then
+              (* stop now if eval_mark_end was rolled back before stop_mark *)
+              cleanup_source_marks phrases
+            else
+              (if should_update_eval_mark then
+                 if success then
+                   gbuf#move_mark buf.Buffer.eval_mark#coerce ~where:
+                     (gbuf#get_iter_at_mark stop_mark)
+                 else
+                   (let where = gbuf#get_iter_at_mark start_mark in
+                    gbuf#move_mark buf.Buffer.eval_mark#coerce ~where;
+                    gbuf#move_mark buf.Buffer.eval_mark_end#coerce ~where);
                gbuf#delete_mark start_mark;
                gbuf#delete_mark stop_mark;
-               if success then eval_phrases rest)
+               if success then eval_phrases rest
+               else cleanup_source_marks rest)
     in
     let phrases = get_phrases start stop in
     eval_phrases phrases
@@ -302,6 +329,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
       | None -> let top = top_start () in
           top_ref := Some top; top);
   Gui.Controls.bind `STOP (fun () ->
+    let buf = !current_buffer_ref in
+    buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark_end#coerce
+      ~where:(buf.Buffer.gbuffer#get_iter_at_mark buf.Buffer.eval_mark#coerce);
     match !top_ref with
     | Some top -> Top.stop top
     | None -> ());
