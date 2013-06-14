@@ -15,11 +15,17 @@ module GSourceView_params = struct
     sty
 end
 
+type reindent_needed = No_reindent
+                     | Reindent_delayed of int
+                     | Reindent_line of int
+                     | Reindent_after of int
+                     | Reindent_full
+
 type t = {
   mutable filename: string option;
   gbuffer: GSourceView2.source_buffer;
   view: GSourceView2.source_view;
-  mutable need_reindent: bool;
+  mutable need_reindent: reindent_needed;
   eval_mark: GSourceView2.source_mark;
   eval_mark_end: GSourceView2.source_mark;
   (* mutable error_tags: GText.tag list; *)
@@ -113,6 +119,18 @@ module Tags = struct
           t
 end
 
+let reindent_max r1 r2 = match r1, r2 with
+  | No_reindent, r | r, No_reindent -> r
+  | Reindent_full, _ | _, Reindent_full -> Reindent_full
+  | Reindent_delayed l1, Reindent_delayed l2 when l1 = l2 -> Reindent_delayed l1
+  | (Reindent_line l1 | Reindent_delayed l1),
+    (Reindent_line l2 | Reindent_delayed l2)
+    when l1 = l2
+    -> Reindent_line l1
+  | (Reindent_line l1 | Reindent_after l1 | Reindent_delayed l1),
+    (Reindent_line l2 | Reindent_after l2 | Reindent_delayed l2)
+    -> Reindent_after (min l1 l2)
+
 let reindent t =
   let buf = t.gbuffer in
   (* ensure buffer ends with a newline *)
@@ -132,7 +150,11 @@ let reindent t =
       n
   in
   let buf_indent =
-    let line = ref 0 in
+    let line =
+      ref (match t.need_reindent with
+          | Reindent_line l | Reindent_after l -> l
+          | _ -> 0)
+    in
     fun indent ->
       let start = buf#get_iter (`LINE !line) in
       if start#char = int_of_char ' ' then (
@@ -160,8 +182,13 @@ let reindent t =
     debug = false;
     config =
       IndentConfig.update_from_string IndentConfig.default "apprentice";
-    in_lines = (fun _ -> true);
+    in_lines = (match t.need_reindent with
+        | No_reindent | Reindent_delayed _ -> assert false
+        | Reindent_line l -> (fun n -> n = l + 1)
+        | Reindent_after l -> (fun n -> n >= l + 1)
+        | Reindent_full -> (fun _ -> true));
     indent_empty = true;
+    adaptive = false;
     kind = IndentPrinter.Numeric buf_indent;
   }
   in
@@ -351,16 +378,37 @@ let create ?name ?(contents="")
       gbuffer#start_iter
   in
   let t =
-    { filename = name; need_reindent = false; gbuffer; view;
+    { filename = name; need_reindent = Reindent_full; gbuffer; view;
       eval_mark; eval_mark_end; }
   in
-  let trigger_reindent () =
-    if not t.need_reindent then
-      (t.need_reindent <- true;
-       ignore @@ GMain.Idle.add @@ fun () ->
-         ignore @@ reindent t;
-         t.need_reindent <- false;
-         false)
+  let trigger_reindent reindent_needed =
+    match t.need_reindent with
+    | No_reindent | Reindent_delayed _ ->
+      Tools.debug "Reindent triggered (%s)"
+        (match reindent_needed with Reindent_full -> "full"
+                                  | Reindent_line l -> "line "^string_of_int l
+                                  | Reindent_after l -> "after "^string_of_int l
+                                  | _ -> "????");
+      t.need_reindent <- reindent_max t.need_reindent reindent_needed;
+      ignore @@ GMain.Idle.add @@ fun () ->
+        Tools.debug "Reindent processing (%s)"
+          (match t.need_reindent with Reindent_full -> "full"
+                                    | Reindent_line l -> "line "^string_of_int l
+                                    | Reindent_after l -> "after "^string_of_int l
+                                    | _ -> "????");
+        ignore @@ reindent t;
+        t.need_reindent <-
+          (match reindent_needed with
+           | Reindent_line l -> Reindent_delayed l
+           | _ -> No_reindent);
+        false
+    | current ->
+      t.need_reindent <- reindent_max current reindent_needed;
+      Tools.debug "Reindent surclassed (%s)"
+        (match t.need_reindent with Reindent_full -> "full"
+                                  | Reindent_line l -> "line "^string_of_int l
+                                  | Reindent_after l -> "after "^string_of_int l
+                                  | _ -> "????")
   in
   ignore @@ gbuffer#connect#after#insert_text ~callback:(fun iter text ->
       let rec contains_sp i =
@@ -370,16 +418,29 @@ let create ?name ?(contents="")
               contains_sp (i+1)
           | _ -> true
       in
-      if contains_sp 0 then trigger_reindent ()
+      if contains_sp 0 then trigger_reindent (Reindent_line iter#line)
+      else
+        t.need_reindent <- reindent_max t.need_reindent
+            (Reindent_delayed iter#line)
+    );
+  ignore @@ gbuffer#connect#after#notify_cursor_position ~callback:(fun pos ->
+      match t.need_reindent with
+      | Reindent_delayed l | Reindent_line l ->
+        if (gbuffer#get_iter (`OFFSET pos))#line <> l then
+            trigger_reindent (Reindent_after l)
+      | _ -> ()
     );
   setup_completion t;
   ignore @@ reindent t;
+  t.need_reindent <- No_reindent;
   ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
       Gui.set_window_title "%s%s" (filename_default t) @@
         if gbuffer#modified then "*" else "");
   unmodify t;
-  ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start:_ ~stop:_ ->
-      trigger_reindent ()
+  ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start ~stop ->
+      let line = start#line in
+      trigger_reindent (if line = stop#line then Reindent_line line
+                        else Reindent_after line)
     );
   ignore @@ gbuffer#connect#changed
       ~callback:(fun () ->
