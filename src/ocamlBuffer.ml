@@ -86,7 +86,6 @@ module Tags = struct
             (obuf.view#misc#pango_context#get_metrics ())#approx_char_width
             / Pango.scale
           in
-          Tools.debug "Indent %dx%d => %dpx" n char_width (n*char_width);
           t#set_property (`INDENT (n*char_width));
           Hashtbl.add indent_tags n t;
           Hashtbl.add reverse t#get_oid n;
