@@ -1,10 +1,15 @@
 begin program "ocp-edit-simple"
-      files = [ "sigint_unix.c" "tools.ml" "top.ml" "gui.ml" "ocamlBuffer.ml" "topUi.ml" "main.ml" ]
+      files = [ "tools.ml" "top.ml" "gui.ml" "ocamlBuffer.ml" "topUi.ml" "main.ml" ]
       requires = [ "threads" "unix" "str"
                    "lablgtk2" "lablgtk2.sourceview2"
-                   "ocp-indent" ]
+                   "ocp-indent-lib"
+                   "ocp-index-lib" ]
       link = [ "-thread" ]
       comp = [ "-thread" ]
+      if system = "win32" then
+        files += [ "sigint_win.c" ]
+      else
+        files += [ "sigint_unix.c" ]
 end
 
 begin library "threads"
