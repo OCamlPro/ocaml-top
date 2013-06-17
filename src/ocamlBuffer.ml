@@ -166,7 +166,10 @@ let reindent t =
         in
         buf#delete ~start ~stop
       );
-      let stop = start#forward_to_line_end in
+      let stop =
+        if start#ends_line then start#forward_char
+        else start#forward_to_line_end
+      in
       (* fixme: might leave tags when deleting a line break *)
       List.iter (fun tag -> match Tags.get_indent tag with
         | Some n when n <> indent ->
@@ -209,7 +212,10 @@ let get_indented_text ~start ~stop buf =
     if start#offset >= stop#offset then ()
     else
       let stop =
-        let s = start#forward_line in
+        let s =
+          if start#ends_line then start#forward_char
+          else start#forward_line
+        in
         if s#offset >= stop#offset then stop else s
       in
       if not start#ends_line then
@@ -410,7 +416,7 @@ let create ?name ?(contents="")
                                   | Reindent_after l -> "after "^string_of_int l
                                   | _ -> "????")
   in
-  ignore @@ gbuffer#connect#after#insert_text ~callback:(fun iter text ->
+  ignore @@ gbuffer#connect#insert_text ~callback:(fun iter text ->
       let rec contains_sp i =
         if i >= String.length text then false
         else match text.[i] with
@@ -418,12 +424,15 @@ let create ?name ?(contents="")
               contains_sp (i+1)
           | _ -> true
       in
-      if contains_sp 0 then trigger_reindent (Reindent_line iter#line)
+      if contains_sp 0 then
+        trigger_reindent (if String.contains text '\n'
+                          then Reindent_after iter#line
+                          else Reindent_line iter#line)
       else
         t.need_reindent <- reindent_max t.need_reindent
             (Reindent_delayed iter#line)
     );
-  ignore @@ gbuffer#connect#after#notify_cursor_position ~callback:(fun pos ->
+  ignore @@ gbuffer#connect#notify_cursor_position ~callback:(fun pos ->
       match t.need_reindent with
       | Reindent_delayed l | Reindent_line l ->
         if (gbuffer#get_iter (`OFFSET pos))#line <> l then
