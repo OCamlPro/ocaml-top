@@ -293,6 +293,7 @@ let create ?name ?(contents="")
   gbuffer#begin_not_undoable_action ();
   gbuffer#place_cursor ~where:gbuffer#start_iter;
   let view = mkview gbuffer in
+  view#set_mark_category_pixbuf ~category:"error" (Some (GdkPixbuf.from_file "data/err_marker.png"));
   let t = { filename = name; need_reindent = false; gbuffer; view } in
   ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
       Gui.set_window_title "%s%s" (filename_default t) @@

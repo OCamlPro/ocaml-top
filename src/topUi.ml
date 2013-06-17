@@ -74,7 +74,8 @@ let init_top_view current_buffer_ref toplevel_buffer =
     let lines = Str.split_delim delim response in
     disp_lines lines
   in
-  let handle_response response buf start_mark end_mark =
+  let handle_response response (buf: GSourceView2.source_buffer)
+      start_mark end_mark =
     Tools.debug "Was supposed to parse and analyse %S" response;
     let error_regex =
       Str.regexp "^Characters \\([0-9]+\\)-\\([0-9]+\\)"
@@ -88,7 +89,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
       Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
       let start = (buf#get_iter_at_mark start_mark)#forward_chars start_char in
       let stop = (buf#get_iter_at_mark start_mark)#forward_chars end_char in
-      let _errmark = GSourceView2.source_mark ~category:"error" () in
+      let _errmark = buf#create_source_mark ~category:"error" start in
       buf#apply_tag Buffer.Tags.error ~start ~stop
     with Not_found -> ()
   in
@@ -98,17 +99,19 @@ let init_top_view current_buffer_ref toplevel_buffer =
     let rec get_phrases (start:GText.iter) (stop:GText.iter) =
       match start#forward_search ~limit:stop ";;" with
       | Some (a,b) ->
-          (Buffer.get_indented_text ~start ~stop:a buf,
+          (gbuf#get_text ~start ~stop:a (),
+           Buffer.get_indented_text ~start ~stop:a buf,
            `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark a))
           :: get_phrases b stop
       | None ->
-          [Buffer.get_indented_text ~start ~stop buf,
+          [gbuf#get_text ~start ~stop (),
+           Buffer.get_indented_text ~start ~stop buf,
            `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
     in
     let rec eval_phrases = function
       | [] -> ()
-      | (phrase,start_mark,stop_mark) :: rest ->
-          let trimmed = String.trim phrase in
+      | (phrase,indented,start_mark,stop_mark) :: rest ->
+          let trimmed = String.trim indented in
           if trimmed = "" then
             (gbuf#delete_mark start_mark;
              gbuf#delete_mark stop_mark;
