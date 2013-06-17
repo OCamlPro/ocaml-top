@@ -95,11 +95,18 @@ end
 
 let reindent t =
   let buf = t.gbuffer in
+  (* ensure buffer ends with a newline *)
+  if buf#end_iter#line_offset > 0 then (
+    let cursor = buf#create_mark (buf#get_iter_at_mark `INSERT) in
+    buf#insert ~iter:buf#end_iter "\n";
+    buf#place_cursor ~where:(buf#get_iter_at_mark (`MARK cursor))
+  );
   let reader =
     let text = buf#get_text ~start:buf#start_iter ~stop:buf#end_iter () in
+    let textlen = String.length text in
     let pos = ref 0 in
     fun str len ->
-      let n = min len (String.length text - !pos) in
+      let n = min len (textlen - !pos) in
       String.blit text !pos str 0 n;
       pos := !pos + n;
       n
@@ -299,15 +306,15 @@ let create ?name ?(contents="")
          t.need_reindent <- false;
          false)
   in
-  (* TODO: when style changed by sourceview syntax coloration ? *)
-  ignore @@ gbuffer#connect#insert_text ~callback:(fun _iter text ->
-      let rec contains_space i =
+  ignore @@ gbuffer#connect#insert_text ~callback:(fun iter text ->
+      let rec contains_sp i =
         if i >= String.length text then false
         else match text.[i] with
-          | ' ' | '\n' -> true
-          | _ -> contains_space (i+1)
+          | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'' | '`' |'_' ->
+              contains_sp (i+1)
+          | _ -> true
       in
-      if contains_space 0 then trigger_reindent ()
+      if contains_sp 0 then trigger_reindent ()
     );
   ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start:_ ~stop:_ ->
       trigger_reindent ()
