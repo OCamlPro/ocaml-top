@@ -174,6 +174,98 @@ let contents buf =
     ~start:buf.gbuffer#start_iter ~stop:buf.gbuffer#end_iter
     buf
 
+let setup_completion buf =
+  let lib_index =
+    (* temporary *)
+    let rec subdirs acc path =
+      Array.fold_left
+        (fun acc p ->
+          let path = Filename.concat path p in
+          if Sys.is_directory path then subdirs acc path else acc)
+        (path::acc)
+        (Sys.readdir path)
+    in
+    let ocaml_dirs =
+      let ic = Unix.open_process_in "ocamlc -where" in
+      let dir = input_line ic in
+      ignore (Unix.close_process_in ic);
+      subdirs [] dir
+    in
+    LibIndex.load ocaml_dirs
+  in
+  let ocaml_completion_provider =
+    (* ref needed for bootstrap (!) *)
+    let provider_ref = ref None in
+    let is_prefix_char =
+      let chars = List.map int_of_char ['.';'_';'\''] in
+      fun gchar ->
+        Glib.Unichar.isalnum gchar ||
+        List.mem gchar chars
+    in
+    let custom_provider = object (self)
+      method name = "Available library values"
+      method icon = None
+      method populate : GSourceView2.source_completion_context -> unit =
+        fun context ->
+          let candidates =
+            let stop = context#iter in
+            let start =
+              let limit = stop#set_line_offset 0 in
+              let it =
+                stop#backward_find_char ~limit (fun c -> not (is_prefix_char c))
+              in
+              if it#equal limit then it else it#forward_char
+            in
+            let word = buf.gbuffer#get_text ~start ~stop () in
+            Tools.debug "Completing on %S" word;
+            LibIndex.complete lib_index word
+          in
+          let propals =
+            List.map (fun info ->
+              (GSourceView2.source_completion_item
+                 ~label:(LibIndex.name info)
+                 ~text:(LibIndex.name info)
+                 ?icon:None
+                 ~info:(LibIndex.ty info)
+                 ()
+               :> GSourceView2.source_completion_proposal)
+            ) candidates
+          in
+          context#add_proposals
+            (match !provider_ref with Some p -> p | None -> assert false)
+            propals
+            true
+      method matched context = is_prefix_char context#iter#backward_char#char
+      method activation = [`USER_REQUESTED] (* `INTERACTIVE *)
+      method info_widget _propal = None
+      method update_info _propal _info = ()
+      method start_iter _context _propal _iter = false
+      method activate_proposal _propal _iter = true
+      method interactive_delay = 2
+      method priority = 2
+    end
+    in
+    let provider =
+      GSourceView2.source_completion_provider custom_provider
+    in
+    provider_ref := Some provider;
+    provider
+  in
+  let compl = buf.view#completion in
+  compl#set_remember_info_visibility true;
+  compl#set_show_headers false;
+  ignore (compl#add_provider ocaml_completion_provider);
+  (* let compl_visible = ref false in *)
+  ignore (buf.view#event#connect#key_press ~callback:(fun ev ->
+    if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then
+      (* trigger compl; *)
+      (ignore (compl#show [ocaml_completion_provider]
+                 (compl#create_context (buf.gbuffer#get_iter `INSERT)));
+       true)
+    else false
+  ));
+  ()
+
 let create ?name ?(contents="")
     (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
   let gbuffer =
@@ -222,6 +314,7 @@ let create ?name ?(contents="")
       trigger_reindent ()
     );
   trigger_reindent ();
+  setup_completion t;
   gbuffer#end_not_undoable_action ();
   t
 
