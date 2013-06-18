@@ -139,23 +139,13 @@ let reindent t =
     buf#insert ~iter:buf#end_iter "\n";
     buf#place_cursor ~where:(buf#get_iter_at_mark (`MARK cursor))
   );
-  let reader =
-    let text = buf#get_text ~start:buf#start_iter ~stop:buf#end_iter () in
-    let textlen = String.length text in
-    let pos = ref 0 in
-    fun str len ->
-      let n = min len (textlen - !pos) in
-      String.blit text !pos str 0 n;
-      pos := !pos + n;
-      n
-  in
   let buf_indent =
     let line =
       ref (match t.need_reindent with
           | Reindent_line l | Reindent_after l -> l
           | _ -> 0)
     in
-    fun indent ->
+    fun indent () ->
       let start = buf#get_iter (`LINE !line) in
       if start#char = int_of_char ' ' then (
         (* cleanup whitespace (todo: except in comments) *)
@@ -179,7 +169,10 @@ let reindent t =
       buf#apply_tag (Tags.indent t indent) ~start:start#backward_char ~stop;
       incr line
   in
-  let input = Nstream.make reader in
+  let input =
+    Nstream.of_string
+      (buf#get_text ~start:buf#start_iter ~stop:buf#end_iter ())
+  in
   let output = {
     IndentPrinter.
     debug = false;
@@ -195,7 +188,7 @@ let reindent t =
     kind = IndentPrinter.Numeric buf_indent;
   }
   in
-  IndentPrinter.stream output input
+  IndentPrinter.proceed output input IndentBlock.empty ()
 
 let raw_contents buf = buf.gbuffer#get_text ()
 

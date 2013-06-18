@@ -10,4 +10,7 @@ ocp-build.root:
 
 configure: ocp-build.root
 
-.PHONY: all configure
+clean:
+	ocp-build -clean
+
+.PHONY: all configure clean
