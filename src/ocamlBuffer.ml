@@ -390,18 +390,8 @@ let create ?name ?(contents="")
   let trigger_reindent reindent_needed =
     match t.need_reindent with
     | No_reindent | Reindent_delayed _ ->
-      Tools.debug "Reindent triggered (%s)"
-        (match reindent_needed with Reindent_full -> "full"
-                                  | Reindent_line l -> "line "^string_of_int l
-                                  | Reindent_after l -> "after "^string_of_int l
-                                  | _ -> "????");
       t.need_reindent <- reindent_max t.need_reindent reindent_needed;
       ignore @@ GMain.Idle.add @@ fun () ->
-        Tools.debug "Reindent processing (%s)"
-          (match t.need_reindent with Reindent_full -> "full"
-                                    | Reindent_line l -> "line "^string_of_int l
-                                    | Reindent_after l -> "after "^string_of_int l
-                                    | _ -> "????");
         ignore @@ reindent t;
         t.need_reindent <-
           (match reindent_needed with
@@ -409,12 +399,7 @@ let create ?name ?(contents="")
            | _ -> No_reindent);
         false
     | current ->
-      t.need_reindent <- reindent_max current reindent_needed;
-      Tools.debug "Reindent surclassed (%s)"
-        (match t.need_reindent with Reindent_full -> "full"
-                                  | Reindent_line l -> "line "^string_of_int l
-                                  | Reindent_after l -> "after "^string_of_int l
-                                  | _ -> "????")
+      t.need_reindent <- reindent_max current reindent_needed
   in
   ignore @@ gbuffer#connect#insert_text ~callback:(fun iter text ->
       let rec contains_sp i =
