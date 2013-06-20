@@ -1,5 +1,62 @@
 open Tools.Ops
 module Buffer = OcamlBuffer (* fixme *)
+module OB = OcamlBuffer
+
+let rec get_phrases buf (start:GText.iter) (stop:GText.iter) =
+  let gbuf = buf.OB.gbuffer in
+  let next = Buffer.next_beg_of_phrase buf start in
+  let eop = Buffer.skip_space_backwards buf ~limit:start next in
+  let eop =
+    let st = eop#backward_chars 2 in
+    if st#get_text ~stop:eop = ";;" then
+      Buffer.skip_space_backwards buf ~limit:start st
+    else eop
+  in
+  let eop =
+    if eop#contents = `CHAR (Glib.Utf8.first_char "\n") then eop#forward_char
+    else eop
+  in
+  if eop#offset >= stop#offset || eop#equal gbuf#end_iter then
+    [gbuf#get_text ~start ~stop (),
+     Buffer.get_indented_text ~start ~stop buf,
+     `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
+  else
+    (gbuf#get_text ~start ~stop:eop (),
+     Buffer.get_indented_text ~start ~stop:eop buf,
+     `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark eop))
+    :: get_phrases buf next stop
+
+let region_to_eval buf =
+  let gbuf = buf.OB.gbuffer in
+  let eval_iter = gbuf#get_iter_at_mark buf.OB.eval_mark#coerce in
+  let eval_iter =
+    if
+      gbuf#source_marks_at_iter ~category:"block_mark"
+        (OB.skip_space_forwards buf eval_iter)
+      = []
+    then
+      (* the block marks have changed, making the eval_mark invalid.
+         Rewind it to the last block mark *)
+      let last_phrase = OB.last_beg_of_phrase buf eval_iter in
+      Tools.debug "Eval mark invalidated: moving back (last=%d eval=%d skip=%d next phrase=%d)"
+        last_phrase#offset eval_iter#offset
+        (OB.skip_space_forwards buf eval_iter)#offset
+        (OB.next_beg_of_phrase buf eval_iter)#offset
+      ;
+      gbuf#move_mark buf.OB.eval_mark#coerce ~where:last_phrase;
+      last_phrase
+    else
+      eval_iter
+  in
+  let point = gbuf#get_iter `INSERT in
+  let next_point = OB.next_beg_of_phrase buf point in
+  gbuf#move_mark buf.OB.eval_mark_end#coerce ~where:next_point;
+  if eval_iter#offset < point#offset then
+    eval_iter, next_point
+  else
+    let last_point = OB.last_beg_of_phrase buf point in
+    last_point, next_point
+
 
 let init_top_view current_buffer_ref toplevel_buffer =
   let top_view = Gui.open_toplevel_view toplevel_buffer in
@@ -188,42 +245,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
   let topeval top =
     let buf = !current_buffer_ref in
     let gbuf = buf.Buffer.gbuffer in
-    let rec get_phrases (start:GText.iter) (stop:GText.iter) =
-      let next = Buffer.next_beg_of_phrase buf start in
-      let eop =
-        (next#backward_find_char ~limit:start (fun c -> not (Glib.Unichar.isspace c)))
-        #forward_char
-      in
-      let eop =
-        let st = eop#backward_chars 2 in
-        if st#get_text ~stop:eop = ";;" then st
-        else if eop#contents = `CHAR (Glib.Utf8.first_char "\n") then eop#forward_char
-        else eop
-      in
-      if eop#offset >= stop#offset || eop#equal gbuf#end_iter then
-          [gbuf#get_text ~start ~stop (),
-           Buffer.get_indented_text ~start ~stop buf,
-           `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
-      else
-        (gbuf#get_text ~start ~stop:eop (),
-         Buffer.get_indented_text ~start ~stop:eop buf,
-         `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark eop))
-        :: get_phrases next stop
-    in
     let should_update_eval_mark, (start, stop) =
-      if gbuf#has_selection then
-        false, gbuf#selection_bounds
-      else
-        true,
-        let eval_point = gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce in
-        let point = gbuf#get_iter `INSERT in
-        let next_point = Buffer.next_beg_of_phrase buf point in
-        gbuf#move_mark buf.Buffer.eval_mark_end#coerce ~where:next_point;
-        if eval_point#offset < point#offset then
-          eval_point, next_point
-        else
-          let last_point = Buffer.last_beg_of_phrase buf point in
-          last_point, next_point
+      if gbuf#has_selection then false, gbuf#selection_bounds
+      else true, region_to_eval buf
     in
     let cleanup_source_marks phrases =
       List.iter (fun (_,_,start_mark,stop_mark) ->
@@ -279,7 +303,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
                if success then eval_phrases rest
                else cleanup_source_marks rest)
     in
-    let phrases = get_phrases start stop in
+    let phrases = get_phrases buf start stop in
     eval_phrases phrases
   in
   let top_ref = ref None in

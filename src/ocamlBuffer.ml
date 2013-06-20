@@ -119,19 +119,16 @@ module Tags = struct
           t
 end
 
-let skip_space_backwards ?(limit=iter#buffer#start_iter) iter =
+let skip_space_backwards buf ?limit (iter:GText.iter) =
   let it =
-    iter#backward_find_char ~limit (fun c -> not (Glib.Unichar.isspace c))
+    iter#backward_find_char ?limit (fun c -> not (Glib.Unichar.isspace c))
   in
+  let limit = match limit with Some l -> l | None -> buf.gbuffer#start_iter in
   if it#equal limit then it
   else it#forward_char
 
-let skip_space_forwards ?(limit=iter#buffer#end_iter) iter =
-  let it =
-    iter#forward_find_char ~limit (fun c -> not (Glib.Unichar.isspace c))
-  in
-  if it#equal limit then it
-  else it#backward_char
+let skip_space_forwards buf ?limit (iter:GText.iter) =
+    iter#forward_find_char ?limit (fun c -> not (Glib.Unichar.isspace c))
 
 let next_beg_of_phrase buf (iter: GText.iter) =
   (* we got buf.gbuffer#forward/backward_iter_to_source_mark, but it uses
