@@ -127,9 +127,11 @@ let init_top_view current_buffer_ref toplevel_buffer =
       Tools.debug "Parsed error from ocaml: chars %d-%d" start_char end_char;
       (* mark in the source buffer *)
       let input_start = gbuf#get_iter_at_mark src_start_mark in
+      let input_stop = gbuf#get_iter_at_mark src_end_mark in
+      let min i1 i2 = if i1#offset > i2#offset then i2 else i1 in
       mark_error_in_source_buffer gbuf
-        ~start:(input_start#forward_chars start_char)
-        ~stop:(input_start#forward_chars end_char);
+        ~start:(min input_stop (input_start#forward_chars start_char))
+        ~stop:(min input_stop (input_start#forward_chars end_char))
     in
     let rec parse_response success iter = function
       | [] -> success
@@ -187,16 +189,26 @@ let init_top_view current_buffer_ref toplevel_buffer =
     let buf = !current_buffer_ref in
     let gbuf = buf.Buffer.gbuffer in
     let rec get_phrases (start:GText.iter) (stop:GText.iter) =
-      match Buffer.next_end_of_phrase ~limit:stop start with
-      | Some (a,b) ->
-          (gbuf#get_text ~start ~stop:a (),
-           Buffer.get_indented_text ~start ~stop:a buf,
-           `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark b))
-          :: get_phrases b stop
-      | None ->
+      let next = Buffer.next_beg_of_phrase buf start in
+      let eop =
+        (next#backward_find_char ~limit:start (fun c -> not (Glib.Unichar.isspace c)))
+        #forward_char
+      in
+      let eop =
+        let st = eop#backward_chars 2 in
+        if st#get_text ~stop:eop = ";;" then st
+        else if eop#contents = `CHAR (Glib.Utf8.first_char "\n") then eop#forward_char
+        else eop
+      in
+      if eop#offset >= stop#offset || eop#equal gbuf#end_iter then
           [gbuf#get_text ~start ~stop (),
            Buffer.get_indented_text ~start ~stop buf,
            `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
+      else
+        (gbuf#get_text ~start ~stop:eop (),
+         Buffer.get_indented_text ~start ~stop:eop buf,
+         `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark eop))
+        :: get_phrases next stop
     in
     let should_update_eval_mark, (start, stop) =
       if gbuf#has_selection then
@@ -205,23 +217,12 @@ let init_top_view current_buffer_ref toplevel_buffer =
         true,
         let eval_point = gbuf#get_iter_at_mark buf.Buffer.eval_mark#coerce in
         let point = gbuf#get_iter `INSERT in
-        let next_point =
-          match
-            Buffer.next_end_of_phrase
-              (point#backward_find_char @@ fun c ->
-                  not (Glib.Unichar.isspace c || c = Glib.Utf8.first_char ";"))
-          with
-          | None -> gbuf#end_iter
-          | Some (_,b) -> b
-        in
+        let next_point = Buffer.next_beg_of_phrase buf point in
         gbuf#move_mark buf.Buffer.eval_mark_end#coerce ~where:next_point;
         if eval_point#offset < point#offset then
           eval_point, next_point
         else
-          let last_point = match Buffer.last_end_of_phrase point with
-            | None -> gbuf#start_iter
-            | Some (_,b) -> b
-          in
+          let last_point = Buffer.last_beg_of_phrase buf point in
           last_point, next_point
     in
     let cleanup_source_marks phrases =
@@ -320,10 +321,12 @@ let init_top_view current_buffer_ref toplevel_buffer =
         Gui.Controls.enable `STOP
   in
   Gui.Controls.bind `EXECUTE (fun () ->
-    topeval @@ match !top_ref with
-      | Some top -> top
-      | None -> let top = top_start () in
-          top_ref := Some top; top);
+      Buffer.trigger_reindent !current_buffer_ref ~cont:(fun () ->
+          topeval @@ match !top_ref with
+            | Some top -> top
+            | None -> let top = top_start () in
+              top_ref := Some top; top)
+        Buffer.Reindent_full);
   Gui.Controls.bind `STOP (fun () ->
     let buf = !current_buffer_ref in
     buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark_end#coerce
