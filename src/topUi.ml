@@ -37,7 +37,9 @@ let region_to_eval buf =
     then
       (* the block marks have changed, making the eval_mark invalid.
          Rewind it to the last block mark *)
-      let last_phrase = OB.last_beg_of_phrase buf eval_iter in
+      let last_phrase =
+        OB.last_beg_of_phrase ~default:OB.first_beg_of_phrase buf eval_iter
+      in
       Tools.debug "Eval mark invalidated: moving back (last=%d eval=%d skip=%d next phrase=%d)"
         last_phrase#offset eval_iter#offset
         (OB.skip_space_forwards buf eval_iter)#offset
@@ -54,7 +56,9 @@ let region_to_eval buf =
   if eval_iter#offset < point#offset then
     eval_iter, next_point
   else
-    let last_point = OB.last_beg_of_phrase buf point in
+    let last_point =
+      OB.last_beg_of_phrase ~default:OB.first_beg_of_phrase buf point
+    in
     last_point, next_point
 
 
@@ -205,7 +209,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
               let success = success && word <> "Exception" in
               (* Syntax coloration is set by default in the buffer *)
               parse_response success (iter#forward_lines (List.length msg)) rest
-          | "Characters" -> (* beginning of an error/warning message *)
+          | "Characters" | "File" -> (* beginning of an error/warning message *)
               let msg1, rest =
                 accumulate_until
                   (fun line -> match first_word line with

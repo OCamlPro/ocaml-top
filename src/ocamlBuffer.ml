@@ -28,7 +28,8 @@ type t = {
   mutable need_reindent: reindent_needed;
   eval_mark: GSourceView2.source_mark;
   eval_mark_end: GSourceView2.source_mark;
-  mutable block_marks: GSourceView2.source_mark list; (* ordered from bottom to top *)
+ (* ordered from bottom to top *)
+  mutable block_marks: GSourceView2.source_mark list;
   mutable on_reindent: unit -> unit;
 }
 
@@ -119,20 +120,20 @@ module Tags = struct
           t
 end
 
-let skip_space_backwards buf ?limit (iter:GText.iter) =
+let skip_space_backwards buf ?(limit=buf.gbuffer#start_iter) (iter:GText.iter) =
+  let limit = limit#backward_char in
   let it =
-    iter#backward_find_char ?limit (fun c -> not (Glib.Unichar.isspace c))
+    iter#backward_find_char ~limit (fun c -> not (Glib.Unichar.isspace c))
   in
-  let limit = match limit with Some l -> l | None -> buf.gbuffer#start_iter in
-  if it#equal limit then it
-  else it#forward_char
+  it#forward_char
 
 let skip_space_forwards buf ?limit (iter:GText.iter) =
-    iter#forward_find_char ?limit (fun c -> not (Glib.Unichar.isspace c))
+  iter#forward_find_char ?limit (fun c -> not (Glib.Unichar.isspace c))
+
 
 let next_beg_of_phrase buf (iter: GText.iter) =
   (* we got buf.gbuffer#forward/backward_iter_to_source_mark, but it uses
-     side-effects on the mark, aughh. *)
+     side-effects on the iters, aughh. *)
   let offset = iter#offset in
   List.fold_left
     (fun acc mark ->
@@ -141,14 +142,24 @@ let next_beg_of_phrase buf (iter: GText.iter) =
     buf.gbuffer#end_iter
     buf.block_marks
 
-let last_beg_of_phrase buf (iter: GText.iter) =
+let last_beg_of_phrase buf
+    ?(default  = fun buf -> buf.gbuffer#start_iter)
+    (iter: GText.iter) =
   let offset = iter#offset in
-  List.fold_left
-    (fun acc mark ->
-       let it = buf.gbuffer#get_iter_at_mark mark#coerce in
-       if it#offset > acc#offset && it#offset <= offset then it else acc)
-    buf.gbuffer#start_iter
-    buf.block_marks
+  let it_opt =
+    List.fold_left
+      (fun acc mark ->
+         let it = buf.gbuffer#get_iter_at_mark mark#coerce in
+         if acc = None && it#offset <= offset then Some it else acc)
+      None
+      buf.block_marks
+  in
+  match it_opt with Some it -> it | None -> default buf
+
+let first_beg_of_phrase buf =
+  let rec last = function [x] -> x | x::y -> last y | [] -> raise Not_found in
+  try buf.gbuffer#get_iter_at_mark (last buf.block_marks)#coerce
+  with Not_found -> buf.gbuffer#start_iter
 
 let reindent_max r1 r2 = match r1, r2 with
   | No_reindent, r | r, No_reindent -> r
@@ -172,28 +183,36 @@ let reindent t =
   );
   let in_lines = match t.need_reindent with
     | No_reindent | Reindent_delayed _ -> assert false
+    (* l is a gtk line, starting at 0. n is an ocp-indent line starting at 1 *)
     | Reindent_line l -> (fun n -> n = l + 1)
     | Reindent_after l -> (fun n -> n >= l + 1)
     | Reindent_full -> (fun _ -> true)
   in
-  let buf_indent block elt ((line,block_marks) as acc) =
+  let buf_indent block elt (last,line,col,block_marks) =
     match elt with
-    | IndentPrinter.Whitespace _ | IndentPrinter.Text _ -> acc
+    | IndentPrinter.Whitespace w ->
+      last, line, col + String.length w, block_marks
+    | IndentPrinter.Text txt ->
+      if IndentBlock.is_in_comment block then
+        last, line, col + String.length txt, block_marks
+      else
+        let block_marks =
+          if IndentBlock.is_at_top block && block <> IndentBlock.empty ||
+             last = ";;"
+          then
+            buf#create_source_mark
+              ~name:("block."^string_of_int (List.length block_marks))
+              ~category:"block_mark"
+              ((buf#get_iter (`LINE (line - 1)))#forward_chars col)
+            :: block_marks
+          else block_marks
+        in
+        txt, line, col + String.length txt, block_marks
     | IndentPrinter.Newline ->
-      let line = line + 1 in
-      let block_marks =
-        if IndentBlock.is_at_top block && block <> IndentBlock.empty then
-          buf#create_source_mark
-            ~name:("block."^string_of_int line)
-            ~category:"block_mark"
-            (buf#get_iter (`LINE line))
-          :: block_marks
-        else block_marks
-      in
-      (line,block_marks)
+      last, line + 1, 0, block_marks
     | IndentPrinter.Indent indent ->
-      if in_lines (line + 1) then
-        let start = buf#get_iter (`LINE line) in
+      if in_lines line then
+        let start = buf#get_iter (`LINE (line - 1)) in
         if start#char = int_of_char ' ' then (
           (* cleanup whitespace (todo: except in comments) *)
           let stop =
@@ -214,9 +233,9 @@ let reindent t =
             | Some _ | None -> ())
           start#tags;
         buf#apply_tag (Tags.indent t indent) ~start:start#backward_char ~stop;
-        acc
+        last, line, col, block_marks
       else
-        acc
+        last, line, col, block_marks
   in
   let input =
     Nstream.of_string
@@ -238,8 +257,8 @@ let reindent t =
   let block_marks = []
     (* [buf#create_source_mark ~name:("block.0") ~category:"block_mark" (buf#start_iter)] *)
   in
-  let _line, block_marks =
-    IndentPrinter.proceed output input IndentBlock.empty (0,block_marks)
+  let _last, _line, _col, block_marks =
+    IndentPrinter.proceed output input IndentBlock.empty (";;",1,0,block_marks)
   in
   t.block_marks <- block_marks
 
@@ -427,18 +446,21 @@ let create ?name ?(contents="")
   gbuffer#begin_not_undoable_action ();
   gbuffer#place_cursor ~where:gbuffer#start_iter;
   let view = mkview gbuffer in
-  view#set_mark_category_pixbuf ~category:"error"
-    (Some (GdkPixbuf.from_file "data/icons/err_marker.png"));
-  view#set_mark_category_priority ~category:"error" 100;
-  view#set_mark_category_pixbuf ~category:"eval"
-    (Some (GdkPixbuf.from_file "data/icons/eval_marker.png"));
-  view#set_mark_category_priority ~category:"eval" 50;
-  view#set_mark_category_pixbuf ~category:"eval_next" None;
-    (* (Some (GdkPixbuf.from_file "data/icons/eval_marker_next.png")); *)
-  view#set_mark_category_priority ~category:"error" 30;
+  (* set_priority has no effect. Just declare higher prios last... *)
   view#set_mark_category_pixbuf ~category:"block_mark"
     (Some (GdkPixbuf.from_file "data/icons/block_marker.png"));
-  view#set_mark_category_priority ~category:"error" 10;
+  view#set_mark_category_priority ~category:"error" 1;
+  view#set_mark_category_pixbuf ~category:"eval_next"
+    (if Tools.debug_enabled then
+       Some (GdkPixbuf.from_file "data/icons/eval_marker_next.png")
+     else None);
+  view#set_mark_category_priority ~category:"error" 3;
+  view#set_mark_category_pixbuf ~category:"eval"
+    (Some (GdkPixbuf.from_file "data/icons/eval_marker.png"));
+  view#set_mark_category_priority ~category:"eval" 4;
+  view#set_mark_category_pixbuf ~category:"error"
+    (Some (GdkPixbuf.from_file "data/icons/err_marker.png"));
+  view#set_mark_category_priority ~category:"error" 5;
   let eval_mark =
     gbuffer#create_source_mark ~name:"eval" ~category:"eval" gbuffer#start_iter
   in
