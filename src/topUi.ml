@@ -40,11 +40,6 @@ let region_to_eval buf =
       let last_phrase =
         OB.last_beg_of_phrase ~default:OB.first_beg_of_phrase buf eval_iter
       in
-      Tools.debug "Eval mark invalidated: moving back (last=%d eval=%d skip=%d next phrase=%d)"
-        last_phrase#offset eval_iter#offset
-        (OB.skip_space_forwards buf eval_iter)#offset
-        (OB.next_beg_of_phrase buf eval_iter)#offset
-      ;
       gbuf#move_mark buf.OB.eval_mark#coerce ~where:last_phrase;
       last_phrase
     else
@@ -52,14 +47,11 @@ let region_to_eval buf =
   in
   let point = gbuf#get_iter `INSERT in
   let next_point = OB.next_beg_of_phrase buf point in
-  gbuf#move_mark buf.OB.eval_mark_end#coerce ~where:next_point;
-  if eval_iter#offset < point#offset then
-    eval_iter, next_point
-  else
-    let last_point =
-      OB.last_beg_of_phrase ~default:OB.first_beg_of_phrase buf point
-    in
-    last_point, next_point
+  let last_point =
+    if eval_iter#offset < point#offset then eval_iter
+    else OB.last_beg_of_phrase ~default:OB.first_beg_of_phrase buf point
+  in
+  last_point, next_point
 
 
 let init_top_view current_buffer_ref toplevel_buffer =
@@ -246,13 +238,16 @@ let init_top_view current_buffer_ref toplevel_buffer =
     in
     parse_response true response_iter lines
   in
-  let topeval top =
+  let topeval ?(full=false) top =
     let buf = !current_buffer_ref in
     let gbuf = buf.Buffer.gbuffer in
     let should_update_eval_mark, (start, stop) =
-      if gbuf#has_selection then false, gbuf#selection_bounds
+      if full then true, (fst (region_to_eval buf), gbuf#end_iter)
+      else if gbuf#has_selection then false, gbuf#selection_bounds
       else true, region_to_eval buf
     in
+    if should_update_eval_mark then
+      gbuf#move_mark buf.OB.eval_mark_end#coerce ~where:stop;
     let cleanup_source_marks phrases =
       List.iter (fun (_,_,start_mark,stop_mark) ->
           gbuf#delete_mark start_mark;
@@ -339,21 +334,30 @@ let init_top_view current_buffer_ref toplevel_buffer =
   and status_change_hook = function
     | Top.Dead ->
         Gui.Controls.disable `EXECUTE;
+        Gui.Controls.disable `EXECUTE_ALL;
         Gui.Controls.disable `STOP;
         top_ref := Some (top_start ())
     | Top.Ready ->
         Gui.Controls.enable `EXECUTE;
+        Gui.Controls.enable `EXECUTE_ALL;
         Gui.Controls.disable `STOP
     | Top.Busy _ ->
         Gui.Controls.disable `EXECUTE;
+        Gui.Controls.disable `EXECUTE_ALL;
         Gui.Controls.enable `STOP
   in
+  let get_top () = match !top_ref with
+    | Some top -> top
+    | None -> let top = top_start () in top_ref := Some top; top
+  in
   Gui.Controls.bind `EXECUTE (fun () ->
-      Buffer.trigger_reindent !current_buffer_ref ~cont:(fun () ->
-          topeval @@ match !top_ref with
-            | Some top -> top
-            | None -> let top = top_start () in
-              top_ref := Some top; top)
+      Buffer.trigger_reindent !current_buffer_ref
+        ~cont:(fun () -> topeval @@ get_top ())
+        Buffer.Reindent_full);
+  Gui.Controls.bind `EXECUTE_ALL (fun () ->
+      Tools.debug "FULL";
+      Buffer.trigger_reindent !current_buffer_ref
+        ~cont:(fun () -> topeval ~full:true @@ get_top ())
         Buffer.Reindent_full);
   Gui.Controls.bind `STOP (fun () ->
     let buf = !current_buffer_ref in
@@ -363,6 +367,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
     | Some top -> Top.stop top
     | None -> ());
   Gui.Controls.bind `RESTART (fun () ->
+      let buf = !current_buffer_ref in
+      buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark_end#coerce
+        ~where:buf.Buffer.gbuffer#start_iter;
       toplevel_buffer#delete
         ~start:toplevel_buffer#start_iter
         ~stop:toplevel_buffer#end_iter;

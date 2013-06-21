@@ -1,6 +1,6 @@
 module Controls : sig
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
-           | `EXECUTE | `STOP | `CLEAR | `RESTART
+           | `EXECUTE | `EXECUTE_ALL | `STOP | `CLEAR | `RESTART
            | `QUIT ]
 
   val bind: t -> (unit -> unit) -> unit

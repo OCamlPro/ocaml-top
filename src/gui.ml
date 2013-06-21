@@ -4,11 +4,12 @@ let _ = GtkMain.Main.init()
 
 module Controls = struct
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
-           | `EXECUTE | `STOP | `RESTART | `CLEAR
+           | `EXECUTE | `EXECUTE_ALL | `STOP | `RESTART | `CLEAR
            | `QUIT ]
 
   let stock: t -> GtkStock.id = function
     | `RESTART -> `REFRESH
+    | `EXECUTE_ALL -> `MEDIA_FORWARD
     | #GtkStock.id as id -> id
 
   let icon t =
@@ -18,6 +19,7 @@ module Controls = struct
       | `SAVE -> "save"
       | `SAVE_AS -> "save-as"
       | `EXECUTE -> "execute"
+      | `EXECUTE_ALL -> "execute-all"
       | `STOP -> "stop"
       | `RESTART -> "restart"
       | `CLEAR -> "clear"
@@ -35,7 +37,10 @@ module Controls = struct
     | `OPEN -> "Open...","Select an existing file to edit"
     | `SAVE -> "Save","Save the current file"
     | `SAVE_AS -> "Save as...","Select a file to save the current program to"
-    | `EXECUTE -> "Run","Run the current program, or the selection if any"
+    | `EXECUTE -> "Run","Run the current program up to the cursor, \
+                         or the selection if any"
+    | `EXECUTE_ALL -> "Run to end",
+                      "Run the current program as far as possible"
     | `STOP -> "Stop","Stop ongoing program execution"
     | `RESTART -> "Restart","Terminate the current toplevel and start a new one"
     | `CLEAR -> "Clear","Clear the toplevel window history"
@@ -121,7 +126,7 @@ let main_window =
     |> add [
       GPack.vbox ()
       |> pack [
-        GButton.toolbar ()
+        GButton.toolbar ~style:`BOTH ()
         |> add [
           mkbutton `NEW;
           mkbutton `OPEN;
@@ -131,8 +136,9 @@ let main_window =
           mkbutton `EXECUTE;
           mkbutton `STOP;
           mkbutton `RESTART;
+          mkbutton `EXECUTE_ALL;
           (* mkbutton `CLEAR; *)
-          (GButton.separator_tool_item () :> GObj.widget);
+          (GButton.tool_item ~expand:true () :> GObj.widget);
           mkbutton `QUIT;
         ]
         |> as_widget;
