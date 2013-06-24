@@ -121,7 +121,8 @@ let start schedule response_handler status_hook =
   in
   let ocaml_pid =
     Unix.create_process_env "ocaml"
-      [|"ocaml";"-nopromptcont";"-init";"data/toplevel_init.ml"|]
+      [|"ocaml";"-nopromptcont";
+        "-init"; Filename.concat Cfg.datadir "toplevel_init.ml"|]
       env
       top_stdin top_stdout top_stderr
   in

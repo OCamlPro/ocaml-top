@@ -17,13 +17,13 @@ open Tools.Ops
 module GSourceView_params = struct
   let syntax =
     let mgr = GSourceView2.source_language_manager ~default:true in
-    mgr#set_search_path ((Sys.getcwd() ^ "/data") :: mgr#search_path);
+    mgr#set_search_path (Cfg.datadir :: mgr#search_path);
     let syn = mgr#language "ocp-edit-ocaml" in
     if syn = None then Tools.debug "WARNING: ocaml language def not found";
     syn
   let style =
     let mgr = GSourceView2.source_style_scheme_manager ~default:true in
-    mgr#set_search_path ["data"];
+    mgr#set_search_path [Cfg.datadir];
     let sty = mgr#style_scheme "cobalt" in
     if sty = None then Tools.debug "WARNING: style def not found";
     sty
@@ -460,21 +460,23 @@ let create ?name ?(contents="")
   gbuffer#begin_not_undoable_action ();
   gbuffer#place_cursor ~where:gbuffer#start_iter;
   let view = mkview gbuffer in
-  (* set_priority has no effect. Just declare higher prios last... *)
-  view#set_mark_category_pixbuf ~category:"block_mark"
-    (Some (GdkPixbuf.from_file "data/icons/block_marker.png"));
-  view#set_mark_category_priority ~category:"error" 1;
-  view#set_mark_category_pixbuf ~category:"eval_next"
-    (if Tools.debug_enabled then
-       Some (GdkPixbuf.from_file "data/icons/eval_marker_next.png")
-     else None);
-  view#set_mark_category_priority ~category:"error" 3;
-  view#set_mark_category_pixbuf ~category:"eval"
-    (Some (GdkPixbuf.from_file "data/icons/eval_marker.png"));
-  view#set_mark_category_priority ~category:"eval" 4;
-  view#set_mark_category_pixbuf ~category:"error"
-    (Some (GdkPixbuf.from_file "data/icons/err_marker.png"));
-  view#set_mark_category_priority ~category:"error" 5;
+  let _set_mark_categories =
+    let (/) = Filename.concat in
+    let icon name = GdkPixbuf.from_file (Cfg.datadir/"icons"/name^".png") in
+    view#set_mark_category_pixbuf ~category:"block_mark"
+      (Some (icon "block_marker"));
+    view#set_mark_category_pixbuf ~category:"eval_next"
+      (if Tools.debug_enabled then Some (icon "eval_marker_next")
+       else None);
+    view#set_mark_category_pixbuf ~category:"eval"
+      (Some (icon "eval_marker"));
+    view#set_mark_category_pixbuf ~category:"error"
+      (Some (icon "err_marker"));
+    view#set_mark_category_priority ~category:"block_mark" 1;
+    view#set_mark_category_priority ~category:"eval_next" 3;
+    view#set_mark_category_priority ~category:"eval" 4;
+    view#set_mark_category_priority ~category:"error" 5;
+  in
   let eval_mark =
     gbuffer#create_source_mark ~name:"eval" ~category:"eval" gbuffer#start_iter
   in

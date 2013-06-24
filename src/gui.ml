@@ -39,7 +39,10 @@ module Controls = struct
       | `CLEAR -> "clear"
       | `QUIT -> "quit"
     in
-    let file = Printf.sprintf "data/icons/%s.svg" name in
+    let file =
+      let (/) = Filename.concat in
+      Cfg.datadir / "icons" / name ^ ".svg"
+    in
     let pixbuf = GdkPixbuf.from_file_at_size file ~width:22 ~height:22 in
     let img = GMisc.image ~pixbuf () in
     img
@@ -119,7 +122,7 @@ let pack objs (container: GPack.box) =
 let as_widget o = (o :> GObj.widget)
 
 let main_window =
-  let logo = GdkPixbuf.from_file "data/logo.png" in
+  let logo = GdkPixbuf.from_file (Filename.concat Cfg.datadir "logo.png") in
   let tooltips = GData.tooltips () in
   let mkbutton ctrl =
     let label,text = Controls.help ctrl in

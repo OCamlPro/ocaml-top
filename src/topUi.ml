@@ -333,8 +333,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
       | Top.User u -> display_stdout u
       | Top.Exited ->
           let buf = !current_buffer_ref in
-          buf.Buffer.gbuffer#move_mark
-            buf.Buffer.eval_mark#coerce ~where:buf.Buffer.gbuffer#start_iter;
+          let where = buf.Buffer.gbuffer#start_iter in
+          buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark#coerce ~where;
+          buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark_end#coerce ~where;
           toplevel_buffer#insert
             ~tags:[Buffer.Tags.ocamltop_warn]
             ~iter:toplevel_buffer#end_iter
