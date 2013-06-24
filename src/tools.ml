@@ -86,7 +86,7 @@ module File = struct
     contents |> k
 
   let save contents filename k =
-    debug "Attempting to save %S" filename;
+    debug "Saving %S" filename;
     let () =
       try
         let oc = open_out filename in

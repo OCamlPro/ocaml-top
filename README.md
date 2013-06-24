@@ -1,8 +1,7 @@
-ocp-edit-simple
-===============
+ocaml-top
+=========
 
-A simple cross-platform OCaml code editor / IDE designed for beginners and
-students.
+A simple cross-platform OCaml code editor built for top-level evaluation.
 
 ## Features
 
@@ -26,7 +25,7 @@ environment.
 
 ## License
 
-`Ocp-edit-simple` is released under GPLv3. See the file LICENSE for more
+`ocaml-top` is released under GPLv3. See the file LICENSE for more
 information. It also includes icons from the KDE oxygen set, available under
 LGPLv3, and two modified files from GtkSourceView, available under LGPLv2.1 or
 later.

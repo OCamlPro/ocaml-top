@@ -1,4 +1,4 @@
-begin program "ocp-edit-simple"
+begin program "ocaml-top"
       files = [ "tools.ml" "top.ml" "gui.ml" "ocamlBuffer.ml" "topUi.ml" "main.ml" ]
       requires = [ "threads" "unix" "str"
                    "lablgtk2" "lablgtk2.sourceview2"

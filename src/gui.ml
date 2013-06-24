@@ -58,7 +58,7 @@ module Controls = struct
     | `STOP -> "Stop","Stop ongoing program execution"
     | `RESTART -> "Restart","Terminate the current toplevel and start a new one"
     | `CLEAR -> "Clear","Clear the toplevel window history"
-    | `QUIT -> "Quit","Quit ocp-edit-simple"
+    | `QUIT -> "Quit","Quit ocaml-top"
 
   (* We could use lablgtk's action groups as well. But better map from an open
      variant than from strings... *)
@@ -133,7 +133,7 @@ let main_window =
   in
   let win =
     GWindow.window
-      ~title:"ocp-simple-edit"
+      ~title:"ocaml-top"
       ~height:600 ~allow_shrink:true (* ~width:800 ~show:true *)
       ~icon:logo
       ()
@@ -183,7 +183,7 @@ let main_window =
   win
 
 let set_window_title fmt =
-  Printf.ksprintf main_window#set_title (fmt ^^ " - ocp-edit-simple")
+  Printf.ksprintf main_window#set_title (fmt ^^ " - ocaml-top")
 
 let open_text_view buffer =
   Tools.debug "open text view";

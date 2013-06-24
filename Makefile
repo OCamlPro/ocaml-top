@@ -1,9 +1,9 @@
-BYTE = _obuild/ocp-edit-simple/ocp-edit-simple.byte
+BYTE = _obuild/ocaml-top/ocaml-top.byte
 
 all: $(BYTE)
 
 $(BYTE): configure
-	ocp-build -byte ocp-edit-simple
+	ocp-build -byte ocaml-top
 
 ocp-build.root:
 	ocp-build -init -scan
