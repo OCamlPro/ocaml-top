@@ -14,17 +14,17 @@
 
 open Tools.Ops
 
-module Buffer = OcamlBuffer (* fixme *)
+module OBuf = OcamlBuffer
 
-let current_buffer = ref (Buffer.create Gui.open_text_view)
+let current_buffer = ref (OBuf.create Gui.open_text_view)
 let toplevel_buffer =
   GSourceView2.source_buffer
-    ?language:Buffer.GSourceView_params.syntax
-    ?style_scheme:Buffer.GSourceView_params.style
+    ?language:OBuf.GSourceView_params.syntax
+    ?style_scheme:OBuf.GSourceView_params.style
     ~highlight_matching_brackets:true
     ~highlight_syntax:true
     ?undo_manager:None
-    ~tag_table:Buffer.Tags.table
+    ~tag_table:OBuf.Tags.table
     ()
 
 let rec protect ?(loop=false) f x =
@@ -43,14 +43,14 @@ let rec protect ?(loop=false) f x =
 module Actions = struct
   let load_file name =
     protect (Tools.File.load name) @@ fun contents ->
-      let buf = Buffer.create ~name ~contents Gui.open_text_view in
+      let buf = OBuf.create ~name ~contents Gui.open_text_view in
       current_buffer := buf
 
   let confirm_discard k =
-    if Buffer.is_modified !current_buffer then
+    if OBuf.is_modified !current_buffer then
       Gui.Dialogs.confirm ~title:"Please confirm"
         (Printf.sprintf "Discard your changes to %s ?"
-         @@ Buffer.filename_default
+         @@ OBuf.filename_default
            ~default:"the current file" !current_buffer)
       @@ k
     else k ()
@@ -60,10 +60,10 @@ module Actions = struct
       Gui.Dialogs.choose_file `OPEN load_file
 
   let save_to_file name () =
-    let contents = Buffer.contents !current_buffer in
+    let contents = OBuf.contents !current_buffer in
     protect (Tools.File.save contents name) @@ fun () ->
-      Buffer.set_filename !current_buffer name;
-      Buffer.unmodify !current_buffer
+      OBuf.set_filename !current_buffer name;
+      OBuf.unmodify !current_buffer
 
   let save_to_file_ask ?name () = match name with
     | Some n -> save_to_file n ()
@@ -78,13 +78,13 @@ module Actions = struct
 
   let new_empty () =
     confirm_discard @@ fun () ->
-      current_buffer := Buffer.create Gui.open_text_view
+      current_buffer := OBuf.create Gui.open_text_view
 
   let check_before_quit _ =
-    Buffer.is_modified !current_buffer &&
-      Gui.Dialogs.quit (Buffer.filename !current_buffer) @@ fun () ->
-        save_to_file_ask ?name:(Buffer.filename !current_buffer) ();
-        Buffer.is_modified !current_buffer
+    OBuf.is_modified !current_buffer &&
+      Gui.Dialogs.quit (OBuf.filename !current_buffer) @@ fun () ->
+        save_to_file_ask ?name:(OBuf.filename !current_buffer) ();
+        OBuf.is_modified !current_buffer
 end
 
 let _bind_actions =
@@ -92,7 +92,7 @@ let _bind_actions =
   Gui.Controls.bind `OPEN Actions.load_dialog;
   Gui.Controls.bind `SAVE_AS Actions.save_to_file_ask;
   Gui.Controls.bind `SAVE (fun () ->
-    Actions.save_to_file_ask ?name:(Buffer.filename !current_buffer) ());
+    Actions.save_to_file_ask ?name:(OBuf.filename !current_buffer) ());
   Gui.Controls.bind `QUIT (fun () ->
     if not (Actions.check_before_quit ()) then Gui.main_window#destroy ())
 

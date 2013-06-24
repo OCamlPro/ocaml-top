@@ -13,17 +13,16 @@
 (**************************************************************************)
 
 open Tools.Ops
-module Buffer = OcamlBuffer (* fixme *)
-module OB = OcamlBuffer
+module OBuf = OcamlBuffer
 
 let rec get_phrases buf (start:GText.iter) (stop:GText.iter) =
-  let gbuf = buf.OB.gbuffer in
-  let next = Buffer.next_beg_of_phrase buf start in
-  let eop = Buffer.skip_space_backwards buf ~limit:start next in
+  let gbuf = buf.OBuf.gbuffer in
+  let next = OBuf.next_beg_of_phrase buf start in
+  let eop = OBuf.skip_space_backwards buf ~limit:start next in
   let eop =
     let st = eop#backward_chars 2 in
     if st#get_text ~stop:eop = ";;" then
-      Buffer.skip_space_backwards buf ~limit:start st
+      OBuf.skip_space_backwards buf ~limit:start st
     else eop
   in
   let eop =
@@ -32,38 +31,38 @@ let rec get_phrases buf (start:GText.iter) (stop:GText.iter) =
   in
   if eop#offset >= stop#offset || eop#equal gbuf#end_iter then
     [gbuf#get_text ~start ~stop (),
-     Buffer.get_indented_text ~start ~stop buf,
+     OBuf.get_indented_text ~start ~stop buf,
      `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
   else
     (gbuf#get_text ~start ~stop:eop (),
-     Buffer.get_indented_text ~start ~stop:eop buf,
+     OBuf.get_indented_text ~start ~stop:eop buf,
      `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark eop))
     :: get_phrases buf next stop
 
 let region_to_eval buf =
-  let gbuf = buf.OB.gbuffer in
-  let eval_iter = gbuf#get_iter_at_mark buf.OB.eval_mark#coerce in
+  let gbuf = buf.OBuf.gbuffer in
+  let eval_iter = gbuf#get_iter_at_mark buf.OBuf.eval_mark#coerce in
   let eval_iter =
     if
       gbuf#source_marks_at_iter ~category:"block_mark"
-        (OB.skip_space_forwards buf eval_iter)
+        (OBuf.skip_space_forwards buf eval_iter)
       = []
     then
       (* the block marks have changed, making the eval_mark invalid.
          Rewind it to the last block mark *)
       let last_phrase =
-        OB.last_beg_of_phrase ~default:OB.first_beg_of_phrase buf eval_iter
+        OBuf.last_beg_of_phrase ~default:OBuf.first_beg_of_phrase buf eval_iter
       in
-      gbuf#move_mark buf.OB.eval_mark#coerce ~where:last_phrase;
+      gbuf#move_mark buf.OBuf.eval_mark#coerce ~where:last_phrase;
       last_phrase
     else
       eval_iter
   in
   let point = gbuf#get_iter `INSERT in
-  let next_point = OB.next_beg_of_phrase buf point in
+  let next_point = OBuf.next_beg_of_phrase buf point in
   let last_point =
     if eval_iter#offset < point#offset then eval_iter
-    else OB.last_beg_of_phrase ~default:OB.first_beg_of_phrase buf point
+    else OBuf.last_beg_of_phrase ~default:OBuf.first_beg_of_phrase buf point
   in
   last_point, next_point
 
@@ -87,7 +86,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
     toplevel_buffer#move_mark stdout_mark
       ~where:toplevel_buffer#end_iter#backward_char;
     toplevel_buffer#insert ~iter:toplevel_buffer#end_iter
-      ~tags:[Buffer.Tags.invisible] " ";
+      ~tags:[OBuf.Tags.invisible] " ";
     toplevel_buffer#move_mark ocaml_mark
       ~where:toplevel_buffer#end_iter#backward_char;
     toplevel_buffer#move_mark prompt_mark
@@ -99,10 +98,10 @@ let init_top_view current_buffer_ref toplevel_buffer =
   in
   let display_top_query phrase =
     (* toplevel_buffer#insert ~iter:toplevel_buffer#end_iter "\n# "; *)
-    insert_top ~tags:[Buffer.Tags.phrase] prompt_mark phrase;
+    insert_top ~tags:[OBuf.Tags.phrase] prompt_mark phrase;
     let phrase_len = String.length phrase in
     if phrase_len > 0 && phrase.[phrase_len - 1] <> '\n' then
-      insert_top ~tags:[Buffer.Tags.phrase] prompt_mark "\n"
+      insert_top ~tags:[OBuf.Tags.phrase] prompt_mark "\n"
   in
   let display_stdout response =
     let rec disp_lines = function
@@ -119,9 +118,9 @@ let init_top_view current_buffer_ref toplevel_buffer =
               String.blit "..." 0 s (1024 - offset - 3) 3;
               s
           in
-          insert_top ~tags:[Buffer.Tags.stdout] stdout_mark line;
+          insert_top ~tags:[OBuf.Tags.stdout] stdout_mark line;
           if rest <> [] then
-            (insert_top ~tags:[Buffer.Tags.stdout] stdout_mark "\n";
+            (insert_top ~tags:[OBuf.Tags.stdout] stdout_mark "\n";
              disp_lines rest)
     in
     let delim = Str.regexp "\r?\n" in
@@ -134,7 +133,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
       | line::rest ->
           if String.length line > 0 && line.[0] = '#' then
             insert_top ocaml_mark "\n";
-          insert_top  (* ~tags:[Buffer.Tags.ocamltop] *) ocaml_mark line;
+          insert_top  (* ~tags:[OBuf.Tags.ocamltop] *) ocaml_mark line;
           if rest <> [] then
             (insert_top ocaml_mark "\n";
              disp_lines rest)
@@ -146,7 +145,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
   let mark_error_in_source_buffer (gbuf:GSourceView2.source_buffer)
       ~start ~stop =
     let errmark = gbuf#create_source_mark ~category:"error" start in
-    gbuf#apply_tag Buffer.Tags.error ~start ~stop;
+    gbuf#apply_tag OBuf.Tags.error ~start ~stop;
     let mark_remover_id = ref None in
     let callback () =
       (match !mark_remover_id with
@@ -154,8 +153,8 @@ let init_top_view current_buffer_ref toplevel_buffer =
        | None -> Tools.debug "Warning, unbound error unmarking callback";
            raise Exit);
       let start = gbuf#get_iter_at_mark errmark#coerce in
-      let stop = start#forward_to_tag_toggle (Some Buffer.Tags.error) in
-      gbuf#remove_tag Buffer.Tags.error ~start ~stop;
+      let stop = start#forward_to_tag_toggle (Some OBuf.Tags.error) in
+      gbuf#remove_tag OBuf.Tags.error ~start ~stop;
       (* buf#remove_source_marks ~category:"error" ~start ~stop ()
            -- may segfault sometimes (??!) *)
       gbuf#delete_mark errmark#coerce
@@ -168,7 +167,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
   let handle_response response response_start_mark
       src_buf src_start_mark src_end_mark =
     (* returns false on errors, true otherwise *)
-    let gbuf = src_buf.Buffer.gbuffer in
+    let gbuf = src_buf.OBuf.gbuffer in
     (* todo:
        - split message (val/type/etc | error/warning | prompt)
        - colorise each part
@@ -240,13 +239,13 @@ let init_top_view current_buffer_ref toplevel_buffer =
                 iter#forward_lines (List.length msg1 + List.length msg2)
               in
               (* mark in the ocaml buffer *)
-              toplevel_buffer#apply_tag Buffer.Tags.ocamltop_err
+              toplevel_buffer#apply_tag OBuf.Tags.ocamltop_err
                 ~start:iter ~stop;
               parse_response false stop rest
           | _ ->
               (* Other messages: override syntax highlighting *)
               let stop = iter#forward_line in
-              toplevel_buffer#apply_tag Buffer.Tags.ocamltop
+              toplevel_buffer#apply_tag OBuf.Tags.ocamltop
                 ~start:iter ~stop;
               parse_response success stop lines
     in
@@ -254,14 +253,14 @@ let init_top_view current_buffer_ref toplevel_buffer =
   in
   let topeval ?(full=false) top =
     let buf = !current_buffer_ref in
-    let gbuf = buf.Buffer.gbuffer in
+    let gbuf = buf.OBuf.gbuffer in
     let should_update_eval_mark, (start, stop) =
       if full then true, (fst (region_to_eval buf), gbuf#end_iter)
       else if gbuf#has_selection then false, gbuf#selection_bounds
       else true, region_to_eval buf
     in
     if should_update_eval_mark then
-      gbuf#move_mark buf.OB.eval_mark_end#coerce ~where:stop;
+      gbuf#move_mark buf.OBuf.eval_mark_end#coerce ~where:stop;
     let cleanup_source_marks phrases =
       List.iter (fun (_,_,start_mark,stop_mark) ->
           gbuf#delete_mark start_mark;
@@ -273,7 +272,7 @@ let init_top_view current_buffer_ref toplevel_buffer =
       | (_,_,_,stop_mark) :: _ as phrases
         when should_update_eval_mark &&
              (gbuf#get_iter_at_mark stop_mark)#offset >
-             (gbuf#get_iter_at_mark buf.Buffer.eval_mark_end#coerce)#offset
+             (gbuf#get_iter_at_mark buf.OBuf.eval_mark_end#coerce)#offset
         ->
           (* eval_end has been moved back, meaning the code was just edited *)
           cleanup_source_marks phrases
@@ -298,19 +297,19 @@ let init_top_view current_buffer_ref toplevel_buffer =
             in
             toplevel_buffer#delete_mark response_start_mark;
             if (gbuf#get_iter_at_mark stop_mark)#offset >
-               (gbuf#get_iter_at_mark buf.Buffer.eval_mark_end#coerce)#offset
+               (gbuf#get_iter_at_mark buf.OBuf.eval_mark_end#coerce)#offset
             then
               (* stop now if eval_mark_end was rolled back before stop_mark *)
               cleanup_source_marks phrases
             else
               (if should_update_eval_mark then
                  if success then
-                   gbuf#move_mark buf.Buffer.eval_mark#coerce ~where:
+                   gbuf#move_mark buf.OBuf.eval_mark#coerce ~where:
                      (gbuf#get_iter_at_mark stop_mark)
                  else
                    (let where = gbuf#get_iter_at_mark start_mark in
-                    gbuf#move_mark buf.Buffer.eval_mark#coerce ~where;
-                    gbuf#move_mark buf.Buffer.eval_mark_end#coerce ~where);
+                    gbuf#move_mark buf.OBuf.eval_mark#coerce ~where;
+                    gbuf#move_mark buf.OBuf.eval_mark_end#coerce ~where);
                gbuf#delete_mark start_mark;
                gbuf#delete_mark stop_mark;
                if success then eval_phrases rest
@@ -333,18 +332,18 @@ let init_top_view current_buffer_ref toplevel_buffer =
       | Top.User u -> display_stdout u
       | Top.Exited ->
           let buf = !current_buffer_ref in
-          let where = buf.Buffer.gbuffer#start_iter in
-          buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark#coerce ~where;
-          buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark_end#coerce ~where;
+          let where = buf.OBuf.gbuffer#start_iter in
+          buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark#coerce ~where;
+          buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark_end#coerce ~where;
           toplevel_buffer#insert
-            ~tags:[Buffer.Tags.ocamltop_warn]
+            ~tags:[OBuf.Tags.ocamltop_warn]
             ~iter:toplevel_buffer#end_iter
             "\t\t*** restarting ocaml ***\n";
     in
     replace_marks ();
     let buf = !current_buffer_ref in
-    buf.Buffer.gbuffer#move_mark
-      buf.Buffer.eval_mark#coerce ~where:buf.Buffer.gbuffer#start_iter;
+    buf.OBuf.gbuffer#move_mark
+      buf.OBuf.eval_mark#coerce ~where:buf.OBuf.gbuffer#start_iter;
     Top.start schedule resp_handler status_change_hook
   and status_change_hook = function
     | Top.Dead ->
@@ -366,25 +365,25 @@ let init_top_view current_buffer_ref toplevel_buffer =
     | None -> let top = top_start () in top_ref := Some top; top
   in
   Gui.Controls.bind `EXECUTE (fun () ->
-      Buffer.trigger_reindent !current_buffer_ref
+      OBuf.trigger_reindent !current_buffer_ref
         ~cont:(fun () -> topeval @@ get_top ())
-        Buffer.Reindent_full);
+        OBuf.Reindent_full);
   Gui.Controls.bind `EXECUTE_ALL (fun () ->
       Tools.debug "FULL";
-      Buffer.trigger_reindent !current_buffer_ref
+      OBuf.trigger_reindent !current_buffer_ref
         ~cont:(fun () -> topeval ~full:true @@ get_top ())
-        Buffer.Reindent_full);
+        OBuf.Reindent_full);
   Gui.Controls.bind `STOP (fun () ->
     let buf = !current_buffer_ref in
-    buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark_end#coerce
-      ~where:(buf.Buffer.gbuffer#get_iter_at_mark buf.Buffer.eval_mark#coerce);
+    buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark_end#coerce
+      ~where:(buf.OBuf.gbuffer#get_iter_at_mark buf.OBuf.eval_mark#coerce);
     match !top_ref with
     | Some top -> Top.stop top
     | None -> ());
   Gui.Controls.bind `RESTART (fun () ->
       let buf = !current_buffer_ref in
-      buf.Buffer.gbuffer#move_mark buf.Buffer.eval_mark_end#coerce
-        ~where:buf.Buffer.gbuffer#start_iter;
+      buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark_end#coerce
+        ~where:buf.OBuf.gbuffer#start_iter;
       toplevel_buffer#delete
         ~start:toplevel_buffer#start_iter
         ~stop:toplevel_buffer#end_iter;
