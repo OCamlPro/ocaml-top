@@ -119,14 +119,29 @@ let start schedule response_handler status_hook =
     |> List.rev
     |> Array.of_list
   in
+  Tools.debug "Running %S..."  !Cfg.ocaml_path;
   let ocaml_pid =
-    Unix.create_process_env "ocaml"
-      [|"ocaml";"-nopromptcont";
-        "-init"; Filename.concat Cfg.datadir "toplevel_init.ml"|]
+    Unix.create_process_env !Cfg.ocaml_path
+      [| !Cfg.ocaml_path; "-nopromptcont";
+         "-init"; Filename.concat Cfg.datadir "toplevel_init.ml" |]
       env
       top_stdin top_stdout top_stderr
   in
-  Tools.debug "Toplevel started";
+  let _check_ocaml_process =
+    match
+      Unix.select [response_fdescr] [] [query_fdescr; response_fdescr] 3.
+    with
+    | _, _, exc_fdescr::_ ->
+        Tools.recover_error
+          "Couldn't start ocaml process. Please check that it is \
+           installed and in your PATH."
+    | read_fdescr::_, _, _ ->
+        Tools.debug "... started"
+    | [], _, [] ->
+        Tools.recover_error
+          "OCaml process is not responding. Please check \
+           your installation"
+  in
   List.iter Unix.close [top_stdin; top_stdout; top_stderr];
   (* Build the top structure *)
   let t = {

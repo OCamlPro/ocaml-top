@@ -199,15 +199,15 @@ let _ =
         protect (Tools.File.load name)
           ~err:(fun () ->
               Gui.Dialogs.choose_file `OPEN
-                ~cancel:(fun () -> init (); Gui.main_window#show())
+                ~cancel:(fun () -> protect init (); Gui.main_window#show())
               @@ load)
         @@ fun contents ->
-          init ~name ~contents ();
+          protect (init ~name ~contents) ();
           Gui.main_window#show();
       in
       load Sys.argv.(1)
     else
-      (init (); Gui.main_window#show())
+      (protect init (); Gui.main_window#show())
   in
   ignore @@ GMain.Idle.add (fun () -> create (); false);
   Sys.set_signal Sys.sigint
