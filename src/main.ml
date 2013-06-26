@@ -168,6 +168,12 @@ let init ?name ?contents () =
         Gui.Controls.enable `STOP
   in
   TopUi.top_start ~init ~status_change_hook toplevel_buffer;
+  (* Don't worry about the change hook, it won't be triggered
+     anymore once the gtk main loop has ended. *)
+  at_exit (fun () ->
+      match toplevel_buffer.TopUi.process with
+      | Some p -> Top.kill p
+      | None -> ());
   (* Create the toplevel view *)
   let top_buf = toplevel_buffer.TopUi.buffer in
   let top_view = Gui.open_toplevel_view top_buf in

@@ -342,7 +342,4 @@ let rec top_start ~init ~status_change_hook top =
   replace_top_marks top;
   init ();
   let process = Top.start schedule resp_handler status_change_hook in
-  top.process <- Some process;
-  at_exit @@ fun () -> Top.kill process
-  (* Don't worry about the change hook, it won't be triggered anymore once
-     the gtk main loop has ended. *)
+  top.process <- Some process
