@@ -189,6 +189,8 @@ let args =
   Arg.align [
     "--ocaml", Arg.Set_string Cfg.ocaml_path,
     "PATH Set the ocaml toplevel executable";
+    "--font", Arg.Set_string Cfg.font,
+    "FONT Choose the font to use, as for Gtk settings. It must be monospace";
     "--",
     Arg.Rest (fun s -> Cfg.ocaml_opts := !Cfg.ocaml_opts @ [s]),
     " Remaining arguments are passed to the ocaml toplevel"

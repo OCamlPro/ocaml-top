@@ -14,6 +14,8 @@
 
 let datadir = Sys.getcwd() ^ "/data"
 
+let font = ref "Consolas,Vera sans,Mono 8"
+
 let char_width = ref 10
 
 let ocaml_path = ref "ocaml"

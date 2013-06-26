@@ -205,8 +205,7 @@ let open_text_view buffer =
       ()
   in
   List.iter main_view#remove main_view#children;
-  view#misc#modify_font_by_name
-    "Consolas,Courier new,Vera sans,Monospace Mono 10";
+  view#misc#modify_font_by_name !Cfg.font;
   let _set_mark_categories =
     let (/) = Filename.concat in
     let icon name = GdkPixbuf.from_file (Cfg.datadir/"icons"/name^".png") in
@@ -250,8 +249,7 @@ let open_toplevel_view top_buf =
       ~editable:false
       ()
   in
-  view#misc#modify_font_by_name
-    "Consolas,Courier new,Vera sans,Monospace Mono 10";
+  view#misc#modify_font_by_name !Cfg.font;
   toplevel_view#add (view :> GObj.widget);
   view#misc#set_size_chars ~width:81 ();
   view
