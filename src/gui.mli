@@ -25,13 +25,17 @@ module Controls : sig
 end
 
 module Dialogs : sig
-  val choose_file : [< `OPEN | `SAVE ] -> (string -> unit) -> unit
+  type 'a cps = ('a -> unit) -> unit
+
+  val choose_file : [< `OPEN | `SAVE ] -> ?cancel:(unit -> unit) -> string cps
 
   val error : title:string -> string -> unit
 
-  val quit : string option -> (unit -> bool) -> bool
+  val quit : string option
+    -> save:(unit -> unit cps) -> quit:(unit -> unit)
+    -> unit
 
-  val confirm : title:string -> string -> (unit -> unit) -> unit
+  val confirm : title:string -> string -> ?no:(unit -> unit) -> unit cps
 end
 
 val main_window : GWindow.window

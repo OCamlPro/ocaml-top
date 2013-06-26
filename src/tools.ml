@@ -66,7 +66,7 @@ let string_split_chars chars str =
 
 module File = struct
 
-  let load filename k =
+  let load : 'a. string -> (string -> 'a) -> 'a = fun filename k ->
     debug "Loading %s" filename;
     let contents =
       try

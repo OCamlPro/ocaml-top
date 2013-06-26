@@ -12,8 +12,10 @@
 (*                                                                        *)
 (**************************************************************************)
 
+module OBuf = OcamlBuffer
+
 (* WORK IN PROGRESS: this works but can trigger SEGFAULTS ! *)
-let setup buf =
+let setup buf (view: GSourceView2.source_view) =
   let lib_index =
     (* temporary *)
     let rec subdirs acc path =
@@ -59,7 +61,7 @@ let setup buf =
             let candidates =
               let stop = context#iter in
               let start = completion_start_iter stop in
-              let word = buf.gbuffer#get_text ~start ~stop () in
+              let word = buf.OBuf.gbuffer#get_text ~start ~stop () in
               Tools.debug "Completing on %S" word;
               LibIndex.complete lib_index word
             in
@@ -84,7 +86,9 @@ let setup buf =
         method info_widget _propal = None
         method update_info _propal _info = ()
         method start_iter context _propal iter =
-          let start = completion_start_iter (buf.gbuffer#get_iter `INSERT) in
+          let start =
+            completion_start_iter (buf.OBuf.gbuffer#get_iter `INSERT)
+          in
           (* ouch, answers by side effect on iter... *)
           iter#nocopy#assign start#nocopy;
           true
@@ -92,7 +96,9 @@ let setup buf =
           let pfxlen = iter#offset - (completion_start_iter iter)#offset in
           let text = propal#text in
           let text = String.sub text pfxlen (String.length text - pfxlen) in
-          buf.gbuffer#insert ~iter:(buf.gbuffer#get_iter `INSERT) text;
+          buf.OBuf.gbuffer#insert
+            ~iter:(buf.OBuf.gbuffer#get_iter `INSERT)
+            text;
           true
         method interactive_delay = 2
         method priority = 2
@@ -104,18 +110,20 @@ let setup buf =
     provider_ref := Some provider;
     provider
   in
-  let compl = buf.view#completion in
+  let compl = view#completion in
   compl#set_remember_info_visibility true;
   compl#set_show_headers false;
   ignore (compl#add_provider ocaml_completion_provider);
   (* let compl_visible = ref false in *)
-  ignore (buf.view#event#connect#key_press ~callback:(fun ev ->
+  ignore (view#event#connect#key_press ~callback:(fun ev ->
     if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then
+      (Tools.debug "Complete !";
       (* trigger compl; *)
-      (ignore (compl#show [ocaml_completion_provider]
-                 (compl#create_context (buf.gbuffer#get_iter `INSERT)));
+       ignore (compl#show [ocaml_completion_provider]
+                 (compl#create_context (buf.OBuf.gbuffer#get_iter `INSERT)));
        true)
     else false
-  ));
+    ));
+  Tools.debug "Completion activated";
   ()
 

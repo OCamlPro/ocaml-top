@@ -75,10 +75,10 @@ let reader_thread fdescr receive_from_main_thread build_response t =
        Thread.exit ());
     try
       let nread = Unix.read fdescr buf 0 buf_len in
-      if nread <= 0 then
-        (Tools.debug "Error reading from the ocaml process, \
-                      terminating reader thread";
-         Thread.exit ());
+      if nread <= 0 then Thread.exit ();
+        (* (Tools.debug "Error reading from the ocaml process, \ *)
+        (*               terminating reader thread"; *)
+        (*  Thread.exit ()); *)
       let response = String.sub buf 0 nread in
       (* Tools.debug "Incoming response from ocaml: %d %s" nread response; *)
       if t.status = Dead then
@@ -100,10 +100,10 @@ let watchdog_thread receive_from_main_thread t =
     with Unix.Unix_error _ ->
         Tools.debug "Watchdog: waitpid returned an error"
   in
-  Tools.debug "Watchdog wakes up: ocaml %d is dead" t.pid;
+  (* Tools.debug "Watchdog wakes up: ocaml %d is dead" t.pid; *)
   receive_from_main_thread ();
-  Event.sync (Event.send t.response_channel Exited);
-  Tools.debug "Watchdog exits: death of ocaml has been signalled"
+  Event.sync (Event.send t.response_channel Exited)
+  (* ; Tools.debug "Watchdog exits: death of ocaml has been signalled" *)
 
 
 let start schedule response_handler status_hook =

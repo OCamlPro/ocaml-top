@@ -38,11 +38,10 @@ type reindent_needed = No_reindent
 type t = {
   mutable filename: string option;
   gbuffer: GSourceView2.source_buffer;
-  view: GSourceView2.source_view;
   mutable need_reindent: reindent_needed;
   eval_mark: GSourceView2.source_mark;
   eval_mark_end: GSourceView2.source_mark;
- (* ordered from bottom to top *)
+  (* ordered from bottom to top *)
   mutable block_marks: GSourceView2.source_mark list;
   mutable on_reindent: unit -> unit;
 }
@@ -68,7 +67,7 @@ module Tags = struct
     (* t#set_property (`BACKGROUND "black"); *)
     (* property paragraph-background colors entire line, but it
        was introduced in gtk 2.8 and isn't yet in lablgtk... *)
-    t#set_property (`INDENT 16); (* fixme: 2*font-width *)
+    t#set_property (`INDENT (2 * !Cfg.char_width));
     t
 
   let stdout =
@@ -115,19 +114,24 @@ module Tags = struct
   let get_indent, indent =
     let indent_tags = Hashtbl.create 64 in
     let reverse = Hashtbl.create 64 in
+    let update_if_font_changed =
+      let char_width = ref !Cfg.char_width in
+      fun () ->
+        if !char_width <> !Cfg.char_width then
+          (char_width := !Cfg.char_width;
+           Hashtbl.iter (fun n t -> t#set_property (`INDENT (n * !char_width)))
+             indent_tags)
+    in
     (fun t ->
       try Some (Hashtbl.find reverse t#get_oid) with
       | Not_found -> None),
     fun obuf n ->
+      update_if_font_changed ();
       try Hashtbl.find indent_tags n with
       | Not_found ->
           let name = Printf.sprintf "indent-%d" n in
           let t = GText.tag ~name () in
-          let char_width =
-            (obuf.view#misc#pango_context#get_metrics ())#approx_char_width
-            / Pango.scale
-          in
-          t#set_property (`INDENT (n*char_width));
+          t#set_property (`INDENT (n * !Cfg.char_width));
           Hashtbl.add indent_tags n t;
           Hashtbl.add reverse t#get_oid n;
           table#add t#as_tag;
@@ -318,8 +322,7 @@ let get_indented_text ~start ~stop buf =
         if s#offset >= stop#offset then stop else s
       in
       if not start#ends_line then
-        (let indent = indent_at start in
-         for i = 1 to indent do Buffer.add_char out ' ' done);
+        for i = 1 to indent_at start do Buffer.add_char out ' ' done;
       Buffer.add_string out (buf.gbuffer#get_text ~start ~stop ());
       get_lines stop
   in
@@ -332,14 +335,13 @@ let contents buf =
     ~start:buf.gbuffer#start_iter ~stop:buf.gbuffer#end_iter
     buf
 
-let create ?name ?(contents="")
-    (mkview: GSourceView2.source_buffer -> GSourceView2.source_view) =
+let create ?name ?(contents="") () =
   let gbuffer =
     if not (Glib.Utf8.validate contents) then
       Tools.recover_error
-        "Could not open file %s because it contains invalid utf-8 \
+        "Could not open %s because it contains invalid utf-8 \
          characters. Please fix it or choose another file"
-        (match name with Some n -> n | None -> "<unnamed>");
+        (match name with Some n -> n | None -> "this file");
     GSourceView2.source_buffer
       ~text:contents
       ?language:GSourceView_params.syntax
@@ -352,24 +354,6 @@ let create ?name ?(contents="")
   (* workaround: if we don't do this, loading of the file can be undone *)
   gbuffer#begin_not_undoable_action ();
   gbuffer#place_cursor ~where:gbuffer#start_iter;
-  let view = mkview gbuffer in
-  let _set_mark_categories =
-    let (/) = Filename.concat in
-    let icon name = GdkPixbuf.from_file (Cfg.datadir/"icons"/name^".png") in
-    view#set_mark_category_pixbuf ~category:"block_mark"
-      (Some (icon "block_marker"));
-    view#set_mark_category_pixbuf ~category:"eval_next"
-      (if Tools.debug_enabled then Some (icon "eval_marker_next")
-       else None);
-    view#set_mark_category_pixbuf ~category:"eval"
-      (Some (icon "eval_marker"));
-    view#set_mark_category_pixbuf ~category:"error"
-      (Some (icon "err_marker"));
-    view#set_mark_category_priority ~category:"block_mark" 1;
-    view#set_mark_category_priority ~category:"eval_next" 3;
-    view#set_mark_category_priority ~category:"eval" 4;
-    view#set_mark_category_priority ~category:"error" 5;
-  in
   let eval_mark =
     gbuffer#create_source_mark ~name:"eval" ~category:"eval" gbuffer#start_iter
   in
@@ -377,62 +361,63 @@ let create ?name ?(contents="")
     gbuffer#create_source_mark ~name:"eval_next" ~category:"eval_next"
       gbuffer#start_iter
   in
-  let t =
-    { filename = name; need_reindent = Reindent_full; gbuffer; view;
-      eval_mark; eval_mark_end; block_marks = []; on_reindent = (fun () -> ()) }
+  gbuffer#end_not_undoable_action ();
+  { filename = name;
+    need_reindent = Reindent_full;
+    gbuffer;
+    eval_mark; eval_mark_end;
+    block_marks = [];
+    on_reindent = (fun () -> ()) }
+
+let setup_indent buf =
+  let gbuf = buf.gbuffer in
+  (* reindent is triggered on input containing special characters *)
+  let rec contains_sp text i =
+    if i >= String.length text then false
+    else match text.[i] with
+      | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'' | '`' |'_' ->
+        contains_sp text (i+1)
+      | _ -> true
   in
-  ignore @@ gbuffer#connect#insert_text ~callback:(fun iter text ->
-      let rec contains_sp i =
-        if i >= String.length text then false
-        else match text.[i] with
-          | 'a'..'z' | 'A'..'Z' | '0'..'9' | '\'' | '`' |'_' ->
-              contains_sp (i+1)
-          | _ -> true
-      in
-      if contains_sp 0 then
-        trigger_reindent t (if String.contains text '\n'
-                            then Reindent_after iter#line
-                            else Reindent_line iter#line)
+  ignore @@ gbuf#connect#insert_text ~callback:(fun iter text ->
+      if contains_sp text 0 then
+        trigger_reindent buf (if String.contains text '\n'
+                              then Reindent_after iter#line
+                              else Reindent_line iter#line)
       else
-        t.need_reindent <- reindent_max t.need_reindent
+        buf.need_reindent <- reindent_max buf.need_reindent
             (Reindent_delayed iter#line)
     );
-  ignore @@ gbuffer#connect#notify_cursor_position ~callback:(fun pos ->
-      match t.need_reindent with
+  ignore @@ gbuf#connect#notify_cursor_position ~callback:(fun pos ->
+      match buf.need_reindent with
       | Reindent_delayed l | Reindent_line l ->
-        if (gbuffer#get_iter (`OFFSET pos))#line <> l then
-            trigger_reindent t (Reindent_after l)
+        if (gbuf#get_iter (`OFFSET pos))#line <> l then
+          trigger_reindent buf (Reindent_after l)
       | _ -> ()
     );
-  (* Completion.setup t; *)
-  ignore @@ reindent t;
-  t.need_reindent <- No_reindent;
-  ignore @@ gbuffer#connect#modified_changed ~callback:(fun () ->
-      Gui.set_window_title "%s%s" (filename_default t) @@
-        if gbuffer#modified then "*" else "");
-  unmodify t;
-  ignore @@ gbuffer#connect#delete_range ~callback:(fun ~start ~stop ->
+  ignore @@ reindent buf;
+  buf.need_reindent <- No_reindent;
+  unmodify buf;
+  ignore @@ gbuf#connect#delete_range ~callback:(fun ~start ~stop ->
       let line = start#line in
-      trigger_reindent t (if line = stop#line then Reindent_line line
-                          else Reindent_after line)
+      trigger_reindent buf (if line = stop#line then Reindent_line line
+                            else Reindent_after line)
     );
-  ignore @@ gbuffer#connect#changed
+  ignore @@ gbuf#connect#changed
       ~callback:(fun () ->
-          let it = gbuffer#get_iter `INSERT in
+          let it = gbuf#get_iter `INSERT in
           let replace_before_cursor mark =
-            let iter = gbuffer#get_iter_at_mark mark#coerce in
+            let iter = gbuf#get_iter_at_mark mark#coerce in
             if it#offset < iter#offset then
-              gbuffer#move_mark mark#coerce ~where:(last_beg_of_phrase t it)
+              gbuf#move_mark mark#coerce ~where:(last_beg_of_phrase buf it)
           in
-          replace_before_cursor eval_mark;
-          replace_before_cursor eval_mark_end);
+          replace_before_cursor buf.eval_mark;
+          replace_before_cursor buf.eval_mark_end)
   (* TODO:
      - forbid pasting of styled text from the top to the text buffer
      (discard style) ; lablgtk doesn't seem to bind the functions needed to do
      this :/
   *)
-  gbuffer#end_not_undoable_action ();
-  t
 
 let get_selection buf =
   let gbuf = buf.gbuffer in

@@ -207,10 +207,30 @@ let open_text_view buffer =
   List.iter main_view#remove main_view#children;
   view#misc#modify_font_by_name
     "Consolas,Courier new,Vera sans,Monospace Mono 10";
-
+  let _set_mark_categories =
+    let (/) = Filename.concat in
+    let icon name = GdkPixbuf.from_file (Cfg.datadir/"icons"/name^".png") in
+    view#set_mark_category_pixbuf ~category:"block_mark"
+      (Some (icon "block_marker"));
+    view#set_mark_category_pixbuf ~category:"eval_next"
+      (if Tools.debug_enabled then Some (icon "eval_marker_next")
+       else None);
+    view#set_mark_category_pixbuf ~category:"eval"
+      (Some (icon "eval_marker"));
+    view#set_mark_category_pixbuf ~category:"error"
+      (Some (icon "err_marker"));
+    view#set_mark_category_priority ~category:"block_mark" 1;
+    view#set_mark_category_priority ~category:"eval_next" 3;
+    view#set_mark_category_priority ~category:"eval" 4;
+    view#set_mark_category_priority ~category:"error" 5;
+  in
   main_view#add (view :> GObj.widget);
   (* view#misc#modify_base [`NORMAL, `NAME "grey20"]; *)
   (* view#misc#modify_text [`NORMAL, `NAME "wheat"]; *)
+  Cfg.char_width :=
+    (view#misc#pango_context#get_metrics ())#approx_char_width
+    / Pango.scale;
+  Tools.debug "Char width set to %d" !Cfg.char_width;
   view#misc#set_size_chars ~width:84 ();
   view#misc#grab_focus ();
   view
@@ -233,14 +253,15 @@ let open_toplevel_view top_buf =
   view#misc#modify_font_by_name
     "Consolas,Courier new,Vera sans,Monospace Mono 10";
   toplevel_view#add (view :> GObj.widget);
-  (* view#misc#modify_base [`NORMAL, `NAME "grey20"]; *)
-  (* view#misc#modify_text [`NORMAL, `NAME "wheat"]; *)
   view#misc#set_size_chars ~width:81 ();
   view
 
 module Dialogs = struct
 
-  let choose_file action callback =
+  (* Return type of a function that would return 'a, but is in CPS form *)
+  type 'a cps = ('a -> unit) -> unit
+
+  let choose_file action ?(cancel = fun () -> ()) k =
     let title, button_label = match action with
       | `OPEN -> "Please choose file to load", "Load"
       | `SAVE -> "Please choose file to save to", "Save"
@@ -252,14 +273,14 @@ module Dialogs = struct
     in
     let callback x =
       match x with
-      | `CANCEL | `DELETE_EVENT -> dialog#destroy ()
+      | `CANCEL | `DELETE_EVENT -> dialog#destroy (); cancel ()
       | `APPLY ->
         match dialog#filename with
-        | None -> failwith "None selected"
-        | Some name -> callback name; dialog#destroy ()
+        | None -> dialog#destroy (); cancel ()
+        | Some name -> dialog#destroy (); name |> k
     in
     dialog#add_filter @@
-      GFile.filter ~name:"OCaml source (*.ml)" ~patterns:["*.ml"] ();
+      GFile.filter ~name:"OCaml source (*.ml)" ~patterns:["*.ml";"*.ml?"] ();
     dialog#add_filter @@
       GFile.filter ~name:"All files" ~patterns:["*"] ();
     dialog#add_select_button_stock (action :> GtkStock.id) `APPLY;
@@ -280,7 +301,7 @@ module Dialogs = struct
     ignore @@ dialog#run ();
     dialog#destroy ()
 
-  let quit filename save_k =
+  let quit filename ~save ~quit =
     let filename = match filename with
       | Some f -> Printf.sprintf "File %S" f
       | None -> "Current buffer"
@@ -298,16 +319,13 @@ module Dialogs = struct
     dialog#add_button_stock `SAVE `SAVE;
     dialog#add_button_stock `QUIT `QUIT;
     dialog#add_button_stock `CANCEL `CANCEL;
-    let resp = ref true in
     ignore @@ dialog#connect#response ~callback:(function
-      | `SAVE -> resp := () |> save_k
-      | `QUIT -> resp := false
-      | `CANCEL | `DELETE_EVENT -> resp := true);
-    ignore @@ dialog#run ();
-    dialog#destroy ();
-    !resp
+      | `SAVE -> dialog#destroy (); save () @@ quit
+      | `QUIT -> dialog#destroy (); quit ()
+      | `CANCEL | `DELETE_EVENT -> dialog#destroy ());
+    dialog#show ()
 
-  let confirm ~title message k =
+  let confirm ~title message ?(no = fun () -> ()) k =
     let dialog = GWindow.message_dialog
       ~title
       ~message
@@ -317,10 +335,9 @@ module Dialogs = struct
       ()
     in
     ignore @@ dialog#connect#response ~callback:(function
-    | `YES -> () |> k
-    | `NO | `DELETE_EVENT -> ());
-    ignore @@ dialog#run ();
-    dialog#destroy ()
+        | `YES -> dialog#destroy () |> k
+        | `NO | `DELETE_EVENT -> dialog#destroy () |> no);
+    dialog#show ()
 end
 
 let _ =

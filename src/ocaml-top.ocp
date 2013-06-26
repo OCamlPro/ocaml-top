@@ -1,5 +1,12 @@
 begin program "ocaml-top"
-      files = [ "tools.ml" "top.ml" "gui.ml" "ocamlBuffer.ml" "topUi.ml" "main.ml" ]
+      files = [ "tools.ml"
+                "cfg.ml"
+                "ocamlBuffer.ml"
+                "completion.ml"
+                "top.ml"
+                "topUi.ml"
+                "gui.ml"
+                "main.ml" ]
       requires = [ "threads" "unix" "str"
                    "lablgtk2" "lablgtk2.sourceview2"
                    "ocp-indent-lib"
