@@ -81,32 +81,30 @@ module BufActions = struct
 end
 
 module TopActions = struct
-  open TopUi
-
   let execute ~full top buf =
     OBuf.trigger_reindent buf OBuf.reindent_full
-      ~cont:(fun () -> topeval ~full buf top)
+      ~cont:(fun () -> TopUi.topeval ~full buf top)
 
   let stop top buf =
     buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark_end#coerce
       ~where:(buf.OBuf.gbuffer#get_iter_at_mark buf.OBuf.eval_mark#coerce);
-    match top.process with Some process -> Top.stop process
-                         | None -> ()
+    match top.TopUi.process with Some process -> Top.stop process
+                               | None -> ()
 
   let restart top buf =
     Gui.Controls.disable `RESTART;
     buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark_end#coerce
       ~where:buf.OBuf.gbuffer#start_iter;
-    top.buffer#delete
-      ~start:top.buffer#start_iter
-      ~stop:top.buffer#end_iter;
-    match top.process with Some process -> Top.kill process
-                         | None -> ()
+    top.TopUi.buffer#delete
+      ~start:top.TopUi.buffer#start_iter
+      ~stop:top.TopUi.buffer#end_iter;
+    match top.TopUi.process with Some process -> Top.kill process
+                               | None -> ()
 
   let clear top buf =
     top.TopUi.buffer#delete
-      ~start:top.buffer#start_iter
-      ~stop:top.buffer#end_iter;
+      ~start:top.TopUi.buffer#start_iter
+      ~stop:top.TopUi.buffer#end_iter;
 end
 
 let init_code_view  buf =
