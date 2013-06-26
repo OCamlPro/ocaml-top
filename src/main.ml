@@ -94,6 +94,7 @@ module TopActions = struct
                          | None -> ()
 
   let restart top buf =
+    Gui.Controls.disable `RESTART;
     buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark_end#coerce
       ~where:buf.OBuf.gbuffer#start_iter;
     top.buffer#delete
@@ -157,14 +158,17 @@ let init ?name ?contents () =
     | Top.Dead ->
         Gui.Controls.disable `EXECUTE;
         Gui.Controls.disable `EXECUTE_ALL;
+        Gui.Controls.disable `RESTART;
         Gui.Controls.disable `STOP
     | Top.Ready ->
         Gui.Controls.enable `EXECUTE;
         Gui.Controls.enable `EXECUTE_ALL;
+        Gui.Controls.enable `RESTART;
         Gui.Controls.disable `STOP
     | Top.Busy _ ->
         Gui.Controls.disable `EXECUTE;
         Gui.Controls.disable `EXECUTE_ALL;
+        Gui.Controls.enable `RESTART;
         Gui.Controls.enable `STOP
   in
   TopUi.top_start ~init ~status_change_hook toplevel_buffer;
