@@ -17,3 +17,5 @@ let datadir = Sys.getcwd() ^ "/data"
 let char_width = ref 10
 
 let ocaml_path = ref "ocaml"
+
+let ocaml_opts : string list ref = ref []

@@ -20,6 +20,7 @@ type t
 
 (** The status of a toplevel process *)
 type status =
+  | Starting
   | Ready
   | Busy of string
   | Dead

@@ -15,6 +15,7 @@
 open Tools.Ops
 
 type status =
+  | Starting
   | Ready
   | Busy of string
   | Dead
@@ -49,8 +50,20 @@ let main_thread = Thread.self ()
 let receive_event t f =
   let evt = Event.receive t.response_channel in
   let evt = Event.wrap evt  @@ fun resp ->
+      let resp =
+        if resp = Exited && t.status = Starting then
+          (* ocaml does'nt start, let's not loop retrying *)
+          (Tools.debug "Toplevel exit event happened during startup !";
+           Message ".\n\
+                    **********************************************\n\n\
+                    Error: ocaml process not operational.\n\
+                    Please check your installation and parameters\n\
+                    **********************************************\n\
+                    .")
+        else resp
+      in
       f resp;
-      if resp = Exited && t.status <> Dead then (* we already know *)
+      if resp = Exited && t.status <> Dead then (* if Dead, we already know *)
         (Tools.debug "Toplevel exit event received";
          t.status <- Dead; (* don't run the hook yet *)
          t.exit_hook ();
@@ -76,9 +89,6 @@ let reader_thread fdescr receive_from_main_thread build_response t =
     try
       let nread = Unix.read fdescr buf 0 buf_len in
       if nread <= 0 then Thread.exit ();
-        (* (Tools.debug "Error reading from the ocaml process, \ *)
-        (*               terminating reader thread"; *)
-        (*  Thread.exit ()); *)
       let response = String.sub buf 0 nread in
       (* Tools.debug "Incoming response from ocaml: %d %s" nread response; *)
       if t.status = Dead then
@@ -88,7 +98,7 @@ let reader_thread fdescr receive_from_main_thread build_response t =
       Event.sync (Event.send t.response_channel (build_response response));
       loop ()
     with e ->
-        Tools.debug "ERROR IN READER THREAD: %s" (Printexc.to_string e)
+        Tools.debug "Error in reader thread: %s" (Printexc.to_string e)
   in
   loop ()
 
@@ -106,6 +116,25 @@ let watchdog_thread receive_from_main_thread t =
   (* ; Tools.debug "Watchdog exits: death of ocaml has been signalled" *)
 
 
+let await_full_response cont =
+  let buf = Buffer.create 857 in
+  let buffer_rm_suffix buf suf =
+    let len = Buffer.length buf and suf_len = String.length suf in
+    if len >= suf_len && Buffer.sub buf (len - suf_len) suf_len = suf
+    then Some (Buffer.sub buf 0 (len - suf_len))
+    else None
+  in
+  function
+  | Message s ->
+      Buffer.add_string buf s;
+      (* fragile way to detect end of answer *)
+      (match buffer_rm_suffix buf "# " with
+      | Some s -> s |> cont
+      | None -> ())
+  | User _ -> ()
+  | Exited ->
+      Buffer.contents buf |> cont
+
 let start schedule response_handler status_hook =
   let top_stdin,query_fdescr = Unix.pipe() in
   let response_fdescr,top_stdout = Unix.pipe() in
@@ -121,35 +150,24 @@ let start schedule response_handler status_hook =
   in
   Tools.debug "Running %S..."  !Cfg.ocaml_path;
   let ocaml_pid =
-    Unix.create_process_env !Cfg.ocaml_path
-      [| !Cfg.ocaml_path; "-nopromptcont";
-         "-init"; Filename.concat Cfg.datadir "toplevel_init.ml" |]
-      env
+    let args = Array.of_list
+        (!Cfg.ocaml_path :: !Cfg.ocaml_opts @
+           [ "-nopromptcont";
+             "-init"; Filename.concat Cfg.datadir "toplevel_init.ml" ])
+    in
+    Unix.create_process_env !Cfg.ocaml_path args env
       top_stdin top_stdout top_stderr
   in
-  let _check_ocaml_process =
-    match
-      Unix.select [response_fdescr] [] [query_fdescr; response_fdescr] 3.
-    with
-    | _, _, exc_fdescr::_ ->
-        Tools.recover_error
-          "Couldn't start ocaml process. Please check that it is \
-           installed and in your PATH."
-    | read_fdescr::_, _, _ ->
-        Tools.debug "... started"
-    | [], _, [] ->
-        Tools.recover_error
-          "OCaml process is not responding. Please check \
-           your installation"
-  in
   List.iter Unix.close [top_stdin; top_stdout; top_stderr];
+  Tools.debug "Ocaml process %d started: %s" ocaml_pid
+    (String.concat " " (!Cfg.ocaml_path::!Cfg.ocaml_opts));
   (* Build the top structure *)
   let t = {
     pid = ocaml_pid;
     query_channel = Unix.out_channel_of_descr query_fdescr;
     response_channel = Event.new_channel ();
     status_change_hook = (fun t -> status_hook t.status);
-    status = Busy "init";
+    status = Starting;
     receive_hook = None;
     exit_hook = (fun () -> ());
   } in
@@ -175,6 +193,7 @@ let start schedule response_handler status_hook =
     Thread.create
       (watchdog_thread receive_from_main_thread) t
   in
+  set_status t Starting;
   t.exit_hook <- (fun () ->
     List.iter Unix.close [query_fdescr; response_fdescr; error_fdescr];
     (* Tools.debug "Collecting threads..."; *)
@@ -182,7 +201,12 @@ let start schedule response_handler status_hook =
       [_response_reader_thread; _error_reader_thread; _error_reader_thread];
     (* Tools.debug " done" *)
   );
-  set_status t Ready;
+  (* Wait for the first prompt to set the status to "Ready" and accept
+     commands *)
+  t.receive_hook <-
+    Some (await_full_response @@ fun response ->
+        t.receive_hook <- None;
+        set_status t Ready);
   t
 
 let add_status_change_hook t f =
@@ -190,25 +214,6 @@ let add_status_change_hook t f =
   t.status_change_hook <- fun t -> current t; f t.status
 
 let flush t = flush t.query_channel
-
-let await_full_response cont =
-  let buf = Buffer.create 857 in
-  let buffer_rm_suffix buf suf =
-    let len = Buffer.length buf and suf_len = String.length suf in
-    if len >= suf_len && Buffer.sub buf (len - suf_len) suf_len = suf
-    then Some (Buffer.sub buf 0 (len - suf_len))
-    else None
-  in
-  function
-  | Message s ->
-      Buffer.add_string buf s;
-      (* fragile way to detect end of answer *)
-      (match buffer_rm_suffix buf "# " with
-      | Some s -> s |> cont
-      | None -> ())
-  | User _ -> ()
-  | Exited ->
-      Buffer.contents buf |> cont
 
 let query t q cont =
   try
@@ -232,7 +237,7 @@ external sigint : int -> unit = "send_sigint"
 let stop t =
   match t.status with
   | Busy _ -> sigint t.pid
-  | Ready | Dead -> ()
+  | Ready | Starting | Dead -> ()
 
 external terminate : int -> unit = "terminate"
 let kill t =
@@ -241,5 +246,5 @@ let kill t =
       Tools.debug
         "Not killing toplevel %d: according to the records, it's already dead."
         t.pid
-  | Ready | Busy _ ->
+  | Ready | Starting | Busy _ ->
       terminate t.pid

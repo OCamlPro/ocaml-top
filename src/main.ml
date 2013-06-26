@@ -155,7 +155,7 @@ let init ?name ?contents () =
     buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark_end#coerce ~where
   in
   let status_change_hook = function
-    | Top.Dead ->
+    | Top.Dead | Top.Starting ->
         Gui.Controls.disable `EXECUTE;
         Gui.Controls.disable `EXECUTE_ALL;
         Gui.Controls.disable `RESTART;
@@ -185,29 +185,48 @@ let init ?name ?contents () =
       ignore @@ top_view#scroll_to_iter (top_buf#end_iter#set_line_offset 0));
   Tools.debug "Init done, showing main window"
 
+let args =
+  Arg.align [
+    "--ocaml", Arg.Set_string Cfg.ocaml_path,
+    "PATH Set the ocaml toplevel executable";
+    "--",
+    Arg.Rest (fun s -> Cfg.ocaml_opts := !Cfg.ocaml_opts @ [s]),
+    " Remaining arguments are passed to the ocaml toplevel"
+  ]
+
 let _ =
+  let file = ref None in
+  Arg.parse args
+    (fun s -> match !file with None -> file := Some s
+                             | Some _ -> raise (Arg.Bad ("extra parameter "^s)))
+    "ocaml-top [file]\n\
+    \  Simple graphical ocaml code editor designed for top-level interaction.\n\
+    \  Options:"
+  ;
   Tools.debug "Setting up callback exception handler: %a" (fun ch s ->
     GtkSignal.user_handler := (fun exc ->
       Tools.debug "Exception in handler: %s at %s\n"
         (Printexc.to_string exc)
         (Printexc.get_backtrace ()));
     output_string ch s)
-    "ok";
+    "ok"
+  ;
   let create () =
-    if Array.length Sys.argv > 1 then
-      let rec load name =
-        protect (Tools.File.load name)
-          ~err:(fun () ->
-              Gui.Dialogs.choose_file `OPEN
-                ~cancel:(fun () -> protect init (); Gui.main_window#show())
-              @@ load)
-        @@ fun contents ->
-          protect (init ~name ~contents) ();
-          Gui.main_window#show();
-      in
-      load Sys.argv.(1)
-    else
-      (protect init (); Gui.main_window#show())
+    match !file with
+    | Some name ->
+        let rec load name =
+          protect (Tools.File.load name)
+            ~err:(fun () ->
+                Gui.Dialogs.choose_file `OPEN
+                  ~cancel:(fun () -> protect init (); Gui.main_window#show())
+                @@ load)
+          @@ fun contents ->
+            protect (init ~name ~contents) ();
+            Gui.main_window#show();
+        in
+        load name
+    | None ->
+        (protect init (); Gui.main_window#show())
   in
   ignore @@ GMain.Idle.add (fun () -> create (); false);
   Sys.set_signal Sys.sigint
