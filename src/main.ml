@@ -84,7 +84,7 @@ module TopActions = struct
   open TopUi
 
   let execute ~full top buf =
-    OBuf.trigger_reindent buf OBuf.Reindent_full
+    OBuf.trigger_reindent buf OBuf.reindent_full
       ~cont:(fun () -> topeval ~full buf top)
 
   let stop top buf =

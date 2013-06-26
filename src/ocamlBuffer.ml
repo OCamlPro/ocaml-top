@@ -179,6 +179,10 @@ let first_beg_of_phrase buf =
   try buf.gbuffer#get_iter_at_mark (last buf.block_marks)#coerce
   with Not_found -> buf.gbuffer#start_iter
 
+let reindent_line n = Reindent_line n
+let reindent_after n = Reindent_after n
+let reindent_full = Reindent_full
+
 let reindent_max r1 r2 = match r1, r2 with
   | No_reindent, r | r, No_reindent -> r
   | Reindent_full, _ | _, Reindent_full -> Reindent_full
