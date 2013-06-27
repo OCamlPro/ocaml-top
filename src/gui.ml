@@ -337,9 +337,3 @@ module Dialogs = struct
         | `NO | `DELETE_EVENT -> dialog#destroy () |> no);
     dialog#show ()
 end
-
-let _ =
-  GtkSignal.user_handler := fun e ->
-    Tools.debug "Exception in callback: %s\n%s"
-      (Printexc.to_string e)
-      (Printexc.get_backtrace ())

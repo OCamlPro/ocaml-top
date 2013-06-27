@@ -129,7 +129,9 @@ let display_top_response top response =
     | [] -> ()
     | line::rest ->
         if String.length line > 0 && line.[0] = '#' then
-          insert_top top top.ocaml_mark "\n";
+          (if (top.buffer#get_iter_at_mark top.ocaml_mark)#line_offset <> 0
+           then insert_top top top.ocaml_mark "\n";
+           insert_top top top.ocaml_mark "\n");
         insert_top  (* ~tags:[OBuf.Tags.ocamltop] *) top top.ocaml_mark line;
         if rest <> [] then
           (insert_top top top.ocaml_mark "\n";
