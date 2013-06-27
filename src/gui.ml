@@ -41,7 +41,7 @@ module Controls = struct
     in
     let file =
       let (/) = Filename.concat in
-      Cfg.datadir / "icons" / name ^ ".svg"
+      Cfg.datadir / "icons" / name ^ ".png"
     in
     let pixbuf = GdkPixbuf.from_file_at_size file ~width:22 ~height:22 in
     let img = GMisc.image ~pixbuf () in
