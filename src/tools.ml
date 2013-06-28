@@ -73,7 +73,7 @@ module File = struct
         let size = (Unix.stat filename).Unix.st_size in
         if size > Sys.max_string_length then
           failwith "Maximum file size exceeded";
-        let ic = open_in filename in
+        let ic = open_in_bin filename in
         let buf = String.create size in
         really_input ic buf 0 size;
         close_in ic;
@@ -89,7 +89,7 @@ module File = struct
     debug "Saving %S" filename;
     let () =
       try
-        let oc = open_out filename in
+        let oc = open_out_bin filename in
         output_string oc contents;
         close_out oc
       with

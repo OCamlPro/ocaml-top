@@ -17,7 +17,7 @@ open Tools.Ops
 module GSourceView_params = struct
   let syntax =
     let mgr = GSourceView2.source_language_manager ~default:true in
-    mgr#set_search_path (Cfg.datadir :: mgr#search_path);
+    mgr#set_search_path [Cfg.datadir];
     let syn = mgr#language "ocp-edit-ocaml" in
     if syn = None then Tools.debug "WARNING: ocaml language def not found";
     syn

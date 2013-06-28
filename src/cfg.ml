@@ -12,11 +12,11 @@
 (*                                                                        *)
 (**************************************************************************)
 
-let datadir = Sys.getcwd() ^ "/data"
+let datadir = Filename.concat (Sys.getcwd()) "data"
 
-let font = ref "Consolas,Vera sans,Mono 8"
+let font = ref "Mono 10"
 
-let char_width = ref 10
+let char_width = ref 8
 
 let ocamlrun_path = ref "ocamlrun"
 
