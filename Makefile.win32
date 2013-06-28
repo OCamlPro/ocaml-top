@@ -1,0 +1,41 @@
+# -*- makefile -*-
+# Assumes that ocp-indent-lib, ocp-index-lib have been installed as single
+# findlib packages (with the Makefile.simple provided)
+
+UNAME := $(shell uname)
+ifeq (WIN,$(findstring WIN,$(UNAME)))
+  EXEEXT := .exe
+else
+  EXEEXT :=
+endif
+
+WINLIBS=/cygdrive/c/usr/bin
+
+utils/mkwinapp$(EXEEXT): utils/mkwinapp.ml
+	ocamlfind ocamlopt -package unix -linkpkg -o $@ $^
+
+src/%:
+	make -C src $*
+
+ocaml-top$(EXEEXT): utils/mkwinapp$(EXEEXT) src/ocaml-top$(EXEEXT)
+	cp src/ocaml-top$(EXEEXT) .
+	utils/mkwinapp$(EXEEXT) ocaml-top$(EXEEXT)
+
+.PHONY: clean
+clean:
+	rm -f utils/mkwinapp$(EXEEXT)
+	make -C src clean
+	rm -rf tmp
+	rm -f ocaml-top$(EXEEXT)
+
+RESOURCES = data/ocaml.lang data/cobalt.xml data/toplevel_init.ml data/logo.png data/language2.rng data/styles.rng
+ICONS = $(wildcard data/icons/*.png)
+ocaml-top.zip: ocaml-top$(EXEEXT) $(RESOURCES) $(ICONS)
+	rm -rf tmp
+	mkdir -p tmp/ocaml-top/data/icons
+	cp ocaml-top$(EXEEXT) tmp/ocaml-top
+	cp $(RESOURCES) tmp/ocaml-top/data
+	cp $(ICONS) tmp/ocaml-top/data/icons
+	cp $$(PATH=$(WINLIBS):$$PATH ldd ocaml-top.exe | awk '/usr\/bin/ { print $$3 }') tmp/ocaml-top
+	cd tmp && zip -r ../ocaml-top.zip ocaml-top
+
