@@ -148,14 +148,15 @@ let start schedule response_handler status_hook =
     |> List.rev
     |> Array.of_list
   in
-  Tools.debug "Running %S..."  !Cfg.ocaml_path;
   let ocaml_pid =
-    let args = Array.of_list
-        (!Cfg.ocaml_path :: !Cfg.ocaml_opts @
-           [ "-nopromptcont";
-             "-init"; Filename.concat Cfg.datadir "toplevel_init.ml" ])
+    (* Run ocamlrun rather than ocaml directly, otherwise another process is
+       spawned and, on windows, that messes up our process handling *)
+    let args = !Cfg.ocamlrun_path :: !Cfg.ocaml_path :: !Cfg.ocaml_opts
+               @ [ "-nopromptcont";
+                   "-init"; Filename.concat Cfg.datadir "toplevel_init.ml" ]
     in
-    Unix.create_process_env !Cfg.ocaml_path args env
+    Tools.debug "Running %S..." (String.concat " " args);
+    Unix.create_process_env !Cfg.ocamlrun_path (Array.of_list args) env
       top_stdin top_stdout top_stderr
   in
   List.iter Unix.close [top_stdin; top_stdout; top_stderr];

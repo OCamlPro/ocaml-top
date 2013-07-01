@@ -18,6 +18,8 @@ let font = ref "Consolas,Vera sans,Mono 8"
 
 let char_width = ref 10
 
+let ocamlrun_path = ref "ocamlrun"
+
 let ocaml_path = ref "ocaml"
 
 let ocaml_opts : string list ref = ref []
