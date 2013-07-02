@@ -19,7 +19,7 @@ let _ = GtkMain.Main.init()
 module Controls = struct
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
            | `EXECUTE | `EXECUTE_ALL | `STOP | `RESTART | `CLEAR
-           | `QUIT ]
+           | `PREFERENCES | `QUIT ]
 
   let stock: t -> GtkStock.id = function
     | `RESTART -> `REFRESH
@@ -37,6 +37,7 @@ module Controls = struct
       | `STOP -> "stop"
       | `RESTART -> "restart"
       | `CLEAR -> "clear"
+      | `PREFERENCES -> "setup"
       | `QUIT -> "quit"
     in
     let file =
@@ -61,6 +62,7 @@ module Controls = struct
     | `STOP -> "Stop","Stop ongoing program execution"
     | `RESTART -> "Restart","Terminate the current toplevel and start a new one"
     | `CLEAR -> "Clear","Clear the toplevel window history"
+    | `PREFERENCES -> "setup","Configuration options"
     | `QUIT -> "Quit","Quit ocaml-top"
 
   (* We could use lablgtk's action groups as well. But better map from an open
@@ -156,6 +158,7 @@ let main_window =
           mkbutton `EXECUTE_ALL;
           (* mkbutton `CLEAR; *)
           (GButton.tool_item ~expand:true () :> GObj.widget);
+          mkbutton `PREFERENCES;
           mkbutton `QUIT;
         ]
         |> as_widget;
@@ -224,8 +227,6 @@ let open_text_view buffer =
     view#set_mark_category_priority ~category:"error" 5;
   in
   main_view#add (view :> GObj.widget);
-  (* view#misc#modify_base [`NORMAL, `NAME "grey20"]; *)
-  (* view#misc#modify_text [`NORMAL, `NAME "wheat"]; *)
   Cfg.char_width :=
     (view#misc#pango_context#get_metrics ())#approx_char_width
     / Pango.scale;
@@ -335,5 +336,24 @@ module Dialogs = struct
     ignore @@ dialog#connect#response ~callback:(function
         | `YES -> dialog#destroy () |> k
         | `NO | `DELETE_EVENT -> dialog#destroy () |> no);
+    dialog#show ()
+
+  let preferences ~on_font_change () =
+    let dialog = GWindow.font_selection_dialog () in
+    let set_font font =
+      Tools.debug "Font interactively set to %s" font;
+      Cfg.font := font;
+      List.iter (fun v -> v#misc#modify_font_by_name font) main_view#children;
+      List.iter (fun v -> v#misc#modify_font_by_name font) toplevel_view#children
+    in
+    ignore @@ dialog#connect#response ~callback:(function
+      | `APPLY ->
+          set_font dialog#selection#font_name;
+          on_font_change ()
+      | `OK ->
+          set_font dialog#selection#font_name;
+          dialog#destroy ();
+          on_font_change ()
+      | `CANCEL | `DELETE_EVENT -> dialog#destroy ());
     dialog#show ()
 end

@@ -72,6 +72,11 @@ module BufActions = struct
   let new_empty k =
     confirm_discard @@ fun () -> OBuf.create () |> k
 
+  let preferences buf =
+    Gui.Dialogs.preferences ~on_font_change:(fun () ->
+      OBuf.trigger_reindent buf OBuf.reindent_full)
+      ()
+
   let quit buf =
     if OBuf.is_modified buf then
       Gui.Dialogs.quit (OBuf.filename buf)
@@ -136,6 +141,7 @@ let init ?name ?contents () =
   @@ nil;
   Gui.Controls.bind `SAVE    @@ get_buf @@ BufActions.save_to_file ~ask:false
   @@ nil;
+  Gui.Controls.bind `PREFERENCES @@ get_buf @@ BufActions.preferences;
   Gui.Controls.bind `QUIT    @@ get_buf @@ BufActions.quit;
   (* Initialize the top-level buffer and actions *)
   let toplevel_buffer = TopUi.create_buffer () in

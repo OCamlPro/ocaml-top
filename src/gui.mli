@@ -15,7 +15,7 @@
 module Controls : sig
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
            | `EXECUTE | `EXECUTE_ALL | `STOP | `CLEAR | `RESTART
-           | `QUIT ]
+           | `PREFERENCES | `QUIT ]
 
   val bind: t -> (unit -> unit) -> unit
   (* val trigger: t -> unit *)
@@ -36,6 +36,8 @@ module Dialogs : sig
     -> unit
 
   val confirm : title:string -> string -> ?no:(unit -> unit) -> unit cps
+
+  val preferences : on_font_change:(unit -> unit) -> unit -> unit
 end
 
 val main_window : GWindow.window
