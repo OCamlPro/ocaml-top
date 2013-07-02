@@ -28,7 +28,7 @@ clean:
 	rm -rf tmp
 	rm -f ocaml-top$(EXEEXT)
 
-RESOURCES = data/ocaml.lang data/cobalt.xml data/toplevel_init.ml data/logo.png data/language2.rng data/styles.rng
+RESOURCES = data/ocaml.lang data/def.lang data/cobalt.xml data/language2.rng data/toplevel_init.ml data/logo.png data/logo.ico
 ICONS = $(wildcard data/icons/*.png)
 ocaml-top.zip: ocaml-top$(EXEEXT) $(RESOURCES) $(ICONS)
 	rm -rf tmp

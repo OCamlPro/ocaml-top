@@ -36,9 +36,9 @@ should be as simple as `git clone`, `make -f Makefile.simple install`.
 
 `ocaml-top` is released under GPLv3. See the file LICENSE for more information.
 
-It also includes icons from the KDE oxygen set, available under LGPLv3, and two
-modified files from GtkSourceView, available under LGPLv2.1 or later (see the
-headers in data/ for more detail).
+It also includes icons from the KDE oxygen set, available under LGPLv3, and
+three modified files from GtkSourceView, available under LGPLv2.1 or later (see
+the headers in data/ for more detail).
 
 The convenient `utils/mkwinapp` used in the windows build process is Copyright
 (c) 2002-2004 by Harry Chomsky, and released under LGPL v2 or later.
