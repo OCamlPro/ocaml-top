@@ -1,0 +1,87 @@
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+
+  <Product Name='ocaml-top 0.1' Id='9cf7c3da-f460-4442-81a8-5304e5f4b53c'
+           UpgradeCode='6b5569c2-58f9-4555-bd4c-13ce398afaa2'
+           Language='1033' Codepage='1252' Version='0.1.0'
+           Manufacturer='OCamlPro'>
+
+    <Package Id='*' Keywords='OCaml toplevel development IDE'
+             Description="Simple OCaml code editor centered on the toplevel"
+             Manufacturer='OCamlPro'
+             InstallerVersion='100' Languages='1033' Compressed='yes'
+             SummaryCodepage='1252' />
+
+    <Media Id='1' Cabinet='One.cab' EmbedCab='yes' />
+
+    <Directory Id='TARGETDIR' Name='SourceDir'>
+      <Directory Id='ProgramFilesFolder' Name='PFiles'>
+        <Directory Id='INSTALLDIR' Name='ocaml-top'>
+          <Directory Id="DATADIR" Name="data" />
+          <Component Id='MainExecutable'
+                     Guid='0245f0cb-63b7-40ac-8030-bc369e261f32'>
+            <File Id='icon.ico' Name='icon.ico' DiskId='1'
+                  Source='ocaml-top/data/logo.ico' />
+            <File Id='ocaml_top.exe' Name='ocaml-top.exe' DiskId='1'
+                  Source='ocaml-top/ocaml-top.exe' KeyPath='yes'>
+              <Shortcut Id="inst_ocamltop.exe" Directory="INSTALLDIR"
+                        Name="OCaml-Top"
+                        WorkingDirectory='INSTALLDIR' Icon="icon.ico" />
+              <Shortcut Id="startmenu_ocamltop.exe" Directory="ProgramMenuDir"
+                        Name="OCaml-Top"
+                        WorkingDirectory='INSTALLDIR' Icon="icon.ico"
+                        Advertise="yes" />
+              <Shortcut Id="desktop_ocamltop.exe" Directory="DesktopFolder"
+                        Name="OCaml-Top"
+                        WorkingDirectory='INSTALLDIR' Icon="icon.ico"
+                        Advertise="yes" />
+            </File>
+            <!-- does'nt work, we might need to mess with the registry to have INSTALLDIR
+                 set correctly (http://stackoverflow.com/questions/11854536/can-wix-progid-set-the-working-directory) -->
+            <ProgId Id='ocaml_top.mlfile' Description="OCaml source file" Icon='icon.ico'
+                    Advertise="yes">
+              <Extension Id='ml' ContentType='text/x-ml-source' Advertise="yes">
+                <Verb Id='open' Command='Open' Argument='"%1"' />
+              </Extension>
+            </ProgId>
+          </Component>
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder" Name="Programs">
+        <Directory Id="ProgramMenuDir" Name="ocaml-top">
+          <Component Id="ProgramMenuDir"
+                     Guid="3c5b787e-b25e-4716-b8dd-4097c3b2d6ae">
+            <RemoveFolder Id='ProgramMenuDir' On='uninstall' />
+            <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]' Type='string' Value='' KeyPath='yes' />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <Directory Id="DesktopFolder" Name="Desktop" />
+    </Directory>
+
+    <!--Feature Id='Complete' Level='1'-->
+    <Feature Id='Complete' Title='OCaml-Top 0.1' Description='OCaml-Top complete install.'
+      Display='expand' Level='1' ConfigurableDirectory='INSTALLDIR'>
+      <ComponentRef Id='MainExecutable' />
+      <ComponentRef Id='ProgramMenuDir' />
+      <Feature Id='data_feat' Title='data files' Level='1'>
+        <ComponentGroupRef Id='data' />
+      </Feature>
+      <Feature Id='dlls_feat' Title='required dlls' Level='1'>
+        <ComponentGroupRef Id='dlls' />
+      </Feature>
+    </Feature>
+    <Icon Id='icon.ico' SourceFile="ocaml-top/data/logo.ico" />
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+
+    <UIRef Id="WixUI_Advanced" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+    <Property Id="ApplicationFolderName" Value="ocaml-top" />
+    <Property Id="WixAppFolder" Value="WixPerMachineFolder" />
+
+    <!--UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" /-->
+    <WixVariable Id="WixUILicenseRtf" Value="gpl.rtf" />
+  </Product>
+</Wix>

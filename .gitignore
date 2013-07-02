@@ -1,4 +1,17 @@
 _obuild
+inst
 installed.ocp
 ocp-build.root*
 deps.dot
+*~
+*.exe
+*.msi
+*.wix*
+*.cmo
+*.cmi
+*.cma
+*.cmx
+*.cmxa
+*.o
+*.a
+*.zip

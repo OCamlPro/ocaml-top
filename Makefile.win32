@@ -25,17 +25,38 @@ ocaml-top$(EXEEXT): utils/mkwinapp$(EXEEXT) src/ocaml-top$(EXEEXT)
 clean:
 	rm -f utils/mkwinapp$(EXEEXT)
 	make -C src clean
-	rm -rf tmp
-	rm -f ocaml-top$(EXEEXT)
+	rm -rf inst
+	rm -f ocaml-top$(EXEEXT) ocaml-top.msi
 
 RESOURCES = data/ocaml.lang data/def.lang data/cobalt.xml data/language2.rng data/toplevel_init.ml data/logo.png data/logo.ico
 ICONS = $(wildcard data/icons/*.png)
-ocaml-top.zip: ocaml-top$(EXEEXT) $(RESOURCES) $(ICONS)
-	rm -rf tmp
-	mkdir -p tmp/ocaml-top/data/icons
-	cp ocaml-top$(EXEEXT) tmp/ocaml-top
-	cp $(RESOURCES) tmp/ocaml-top/data
-	cp $(ICONS) tmp/ocaml-top/data/icons
-	cp $$(PATH=$(WINLIBS):$$PATH ldd ocaml-top.exe | awk '/usr\/bin/ { print $$3 }') tmp/ocaml-top
-	cd tmp && zip -r ../ocaml-top.zip ocaml-top
+.PHONY: inst/ocaml-top
+inst/ocaml-top: ocaml-top$(EXEEXT) $(RESOURCES) $(ICONS)
+	rm -rf inst
+	mkdir -p inst/ocaml-top/data/icons
+	cp ocaml-top$(EXEEXT) inst/ocaml-top
+	cp $(RESOURCES) inst/ocaml-top/data
+	cp $(ICONS) inst/ocaml-top/data/icons
+	cp $$(PATH=$(WINLIBS):$$PATH ldd ocaml-top.exe | awk '/usr\/bin/ { print $$3 }') \
+	  inst/ocaml-top
 
+ocaml-top.zip: inst/ocaml-top
+	cd inst && zip -r ../ocaml-top.zip ocaml-top
+
+WIXDIR = "/cygdrive/c/Program Files (x86)/WiX Toolset v3.7/bin"
+%.wixobj: %.wxs
+	$(WIXDIR)/candle.exe -d"DataDir=ocaml-top\\data" -d"DllDir=ocaml-top" -out $@ $^
+
+inst/data.wxs: inst/ocaml-top
+	cd inst && $(WIXDIR)/heat.exe dir ocaml-top/data -srd -dr DATADIR -cg data -gg \
+	  -var var.DataDir -out data.wxs
+
+inst/dlls.wxs: inst/ocaml-top
+	cd inst && mkdir dll && cp ocaml-top/*.dll dll && \
+	$(WIXDIR)/heat.exe dir dll -srd -dr INSTALLDIR -cg dlls -gg -var var.DllDir \
+	  -out dlls.wxs
+	rm -rf inst/dll
+
+ocaml-top.msi: inst/data.wixobj inst/dlls.wixobj windows/ocaml-top.wixobj
+	cd inst && $(WIXDIR)/light.exe -ext WixUIExtension -out ../ocaml-top.msi \
+	   data.wixobj dlls.wixobj ../windows/ocaml-top.wixobj
