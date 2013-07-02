@@ -60,7 +60,7 @@
   
   <!-- Bracket Matching -->
   <style name="bracket-match"               background="steelblue3"/>
-  <style name="bracket-mismatch"            background="dark_red" bold="true"/>
+  <style name="bracket-mismatch"            background="dark_red" />
   
   <!-- Search Matching -->
   <style name="search-match"                foreground="white" background="sea_green"/>
@@ -69,19 +69,19 @@
   <style name="bookmark"                    background="white"/>
 
   <!-- Comments -->
-  <style name="def:comment"                 foreground="bluish_grey" italic="true"/>
-  <style name="def:shebang"                 foreground="sky_blue" italic="true"/>
-  <style name="def:doc-comment-element"     bold="true"/>
+  <style name="def:comment"                 foreground="bluish_grey" />
+  <style name="def:shebang"                 foreground="sky_blue" />
+  <style name="def:doc-comment-element"     />
 
   <!-- Constants and Variables-->
   <style name="def:constant"                foreground="faded_yellow"/>
   <style name="def:string"                  foreground="spring_green"/>
   <style name="def:special-char"            foreground="light_grey"/>
-  <style name="def:special-constant"        foreground="nail_polish_pink" bold="true"/>
+  <style name="def:special-constant"        foreground="nail_polish_pink" />
   <style name="def:number"                  foreground="pale_grey"/>
   <style name="def:complex"                 foreground="#cc4422"/>
-  <style name="def:keyword"                 foreground="bright_orange" bold="true"/>
-  <style name="def:builtin"                 foreground="bright_orange" bold="true"/>
+  <style name="def:keyword"                 foreground="bright_orange" />
+  <style name="def:builtin"                 foreground="bright_orange" />
   <style name="def:variable"                foreground="light_grey"/>
   
   <!-- Identifiers -->
@@ -96,8 +96,8 @@
   <style name="def:type"                    foreground="teal_blue"/>
   
   <!-- Others -->
-  <style name="def:error"                   foreground="white" background="dark_red" bold="true"/>
-  <style name="def:note"                    foreground="neon_pink" bold="true"/>
+  <style name="def:error"                   foreground="white" background="dark_red" />
+  <style name="def:note"                    foreground="neon_pink" />
   <style name="def:net-address-in-comment"  foreground="teal_blue" italic="false" underline="true"/>
   <style name="def:preprocessor"            foreground="light_grey"/>
     
@@ -106,18 +106,18 @@
   <style name="def:boolean"                 foreground="nail_polish_pink"/>
 
   <!-- C Styles -->
-  <style name="c:preprocessor"              foreground="teal_blue" bold="true"/>
+  <style name="c:preprocessor"              foreground="teal_blue" />
   <style name="c:included-file"             foreground="spring_green"/>
-  <style name="c:common-defines"            foreground="sky_blue" bold="true"/>
+  <style name="c:common-defines"            foreground="sky_blue" />
 
   <!-- Diff Styles -->
   <style name="diff:ignore"                 foreground="bluish_grey"/>
   <style name="diff:added-line"             foreground="faded_yellow"/>
   <style name="diff:removed-line"           foreground="spring_green"/>
   <style name="diff:changed-line"           foreground="bright_orange"/>
-  <style name="diff:diff-file"              foreground="sky_blue" bold="true"/>
+  <style name="diff:diff-file"              foreground="sky_blue" />
   <style name="diff:location"               foreground="sky_blue"/>
-  <style name="diff:special-case"           foreground="nail_polish_pink" bold="true"/>
+  <style name="diff:special-case"           foreground="nail_polish_pink" />
 
   <!-- Ruby Styles -->
   <style name="ruby:module-handler"         foreground="teal_blue"/>
@@ -131,6 +131,6 @@
   <style name="xml:attribute-name"          foreground="light_grey"/>
   <style name="xml:element-name"            foreground="teal_blue"/>
   <style name="xml:entity"                  foreground="#blue"/>
-  <style name="xml:processing-instruction"  bold="true"/>
+  <style name="xml:processing-instruction"  />
 
 </style-scheme>

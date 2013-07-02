@@ -14,7 +14,7 @@
 
 let datadir = Filename.concat (Sys.getcwd()) "data"
 
-let font = ref "Mono 10"
+let font = ref "Lucida Console,DejaVu Sans Mono,Monospace Regular 10"
 
 let char_width = ref 8
 

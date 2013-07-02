@@ -185,6 +185,7 @@ let init ?name ?contents () =
   (* Create the toplevel view *)
   let top_buf = toplevel_buffer.TopUi.buffer in
   let top_view = Gui.open_toplevel_view top_buf in
+  Gui.set_font !Cfg.font;
   ignore @@ top_buf#connect#changed ~callback:(fun () ->
       ignore @@ top_view#scroll_to_iter (top_buf#end_iter#set_line_offset 0));
   Tools.debug "Init done, showing main window"

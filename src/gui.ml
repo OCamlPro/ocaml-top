@@ -208,7 +208,6 @@ let open_text_view buffer =
       ()
   in
   List.iter main_view#remove main_view#children;
-  view#misc#modify_font_by_name !Cfg.font;
   let _set_mark_categories =
     let (/) = Filename.concat in
     let icon name = GdkPixbuf.from_file (Cfg.datadir/"icons"/name^".png") in
@@ -227,11 +226,7 @@ let open_text_view buffer =
     view#set_mark_category_priority ~category:"error" 5;
   in
   main_view#add (view :> GObj.widget);
-  Cfg.char_width :=
-    (view#misc#pango_context#get_metrics ())#approx_char_width
-    / Pango.scale;
-  Tools.debug "Char width set to %d" !Cfg.char_width;
-  view#misc#set_size_chars ~width:84 ();
+  view#misc#set_size_request ~width:672 ();
   view#misc#grab_focus ();
   view
 
@@ -250,10 +245,23 @@ let open_toplevel_view top_buf =
       ~editable:false
       ()
   in
-  view#misc#modify_font_by_name !Cfg.font;
   toplevel_view#add (view :> GObj.widget);
-  view#misc#set_size_chars ~width:81 ();
+  view#misc#set_size_request ~width:578 ();
   view
+
+let set_font font =
+  let set_view (view: GObj.widget) =
+    view#misc#modify_font_by_name font;
+    Cfg.char_width :=
+      (view#misc#pango_context#get_metrics ())#approx_char_width
+      / Pango.scale
+  in 
+  Cfg.font := font;
+  Tools.debug "Font set to %s" font;
+  List.iter set_view main_view#children;
+  List.iter set_view toplevel_view#children;
+  Tools.debug "Char width set to %d" !Cfg.char_width;
+
 
 module Dialogs = struct
 
@@ -340,12 +348,6 @@ module Dialogs = struct
 
   let preferences ~on_font_change () =
     let dialog = GWindow.font_selection_dialog () in
-    let set_font font =
-      Tools.debug "Font interactively set to %s" font;
-      Cfg.font := font;
-      List.iter (fun v -> v#misc#modify_font_by_name font) main_view#children;
-      List.iter (fun v -> v#misc#modify_font_by_name font) toplevel_view#children
-    in
     ignore @@ dialog#connect#response ~callback:(function
       | `APPLY ->
           set_font dialog#selection#font_name;
