@@ -28,7 +28,10 @@ let datadir =
   in
   ref default
 
-let font = ref "Lucida Console,DejaVu Sans Mono,Monospace Regular 10"
+let font =
+  ref (match Sys.os_type with
+      | "Unix" -> "DejaVu Sans Mono 10"
+      | _ -> "Lucida Console 10")
 
 let char_width = ref 8
 
