@@ -19,7 +19,7 @@ let _ = GtkMain.Main.init()
 module Controls = struct
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
            | `EXECUTE | `EXECUTE_ALL | `STOP | `RESTART | `CLEAR
-           | `PREFERENCES | `QUIT ]
+           | `PREFERENCES | `ZOOM_IN | `ZOOM_OUT | `QUIT ]
 
   let stock: t -> GtkStock.id = function
     | `RESTART -> `REFRESH
@@ -38,6 +38,8 @@ module Controls = struct
       | `RESTART -> "restart"
       | `CLEAR -> "clear"
       | `PREFERENCES -> "setup"
+      | `ZOOM_IN -> "zoom-in"
+      | `ZOOM_OUT -> "zoom-out"
       | `QUIT -> "quit"
     in
     let file =
@@ -62,7 +64,9 @@ module Controls = struct
     | `STOP -> "Stop","Stop ongoing program execution"
     | `RESTART -> "Restart","Terminate the current toplevel and start a new one"
     | `CLEAR -> "Clear","Clear the toplevel window history"
-    | `PREFERENCES -> "setup","Configuration options"
+    | `PREFERENCES -> "Setup","Configuration options"
+    | `ZOOM_IN -> "Zoom in","Make the font bigger"
+    | `ZOOM_OUT -> "Zoom out","Make the font smaller"
     | `QUIT -> "Quit","Quit ocaml-top"
 
   (* We could use lablgtk's action groups as well. But better map from an open
@@ -110,6 +114,8 @@ let shortcuts = [
   ([`CONTROL], GdkKeysyms._s),      `SAVE;
   ([`CONTROL], GdkKeysyms._e),      `EXECUTE;
   ([],         GdkKeysyms._Escape), `STOP;
+  ([`CONTROL], GdkKeysyms._plus),   `ZOOM_IN;
+  ([`CONTROL], GdkKeysyms._minus),  `ZOOM_OUT;
   ([`CONTROL], GdkKeysyms._q),      `QUIT;
 ]
 
@@ -158,7 +164,6 @@ let main_window () =
           mkbutton `EXECUTE_ALL;
           (* mkbutton `CLEAR; *)
           (GButton.tool_item ~expand:true () :> GObj.widget);
-          mkbutton `PREFERENCES;
           mkbutton `QUIT;
         ]
         |> as_widget;
@@ -179,11 +184,15 @@ let main_window () =
     let state = GdkEvent.Key.state ev
       |> List.filter (function #shortcut_mods -> true | _ -> false)
     in
-    try
-      Controls.trigger @@ List.assoc (state, GdkEvent.Key.keyval ev) shortcuts;
-      false
+    let keyval = GdkEvent.Key.keyval ev in
+    match
+      List.filter
+        (fun ((st,kv),_) ->
+           keyval = kv && List.for_all (fun k -> List.mem k state) st)
+        shortcuts
     with
-      | Not_found -> false);
+    | (_,action)::_ -> Controls.trigger action; false
+    | [] -> false);
   win
 
 let set_window_title window fmt =
@@ -223,6 +232,7 @@ let open_text_view buffer =
     view#set_mark_category_priority ~category:"eval" 4;
     view#set_mark_category_priority ~category:"error" 5;
   in
+  view#misc#modify_font_by_name !Cfg.font;
   main_view#add (view :> GObj.widget);
   view#misc#set_size_request ~width:672 ();
   view#misc#grab_focus ();
@@ -243,22 +253,24 @@ let open_toplevel_view top_buf =
       ~editable:false
       ()
   in
+  view#misc#modify_font_by_name !Cfg.font;
   toplevel_view#add (view :> GObj.widget);
   view#misc#set_size_request ~width:578 ();
   view
 
-let set_font font =
+let set_font str =
+  let font = new GPango.font_description (GPango.font_description str) in
   let set_view (view: GObj.widget) =
-    view#misc#modify_font_by_name font;
+    view#misc#modify_font font#fd;
     Cfg.char_width :=
-      (view#misc#pango_context#get_metrics ())#approx_char_width
-      / Pango.scale
-  in 
-  Cfg.font := font;
-  Tools.debug "Font set to %s" font;
+      GPango.to_pixels
+        (view#misc#pango_context#get_metrics ())#approx_char_width
+  in
+  Cfg.font := font#to_string;
   List.iter set_view main_view#children;
   List.iter set_view toplevel_view#children;
-  Tools.debug "Char width set to %d" !Cfg.char_width;
+  Tools.debug "Font set: %S (char width: %d)"
+    font#to_string !Cfg.char_width
 
 
 module Dialogs = struct

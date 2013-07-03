@@ -77,6 +77,15 @@ module BufActions = struct
       OBuf.trigger_reindent buf OBuf.reindent_full)
       ()
 
+  let zoom value buf =
+    let font =
+      new GPango.font_description (GPango.font_description !Cfg.font)
+    in
+    let size = max 6 @@ min 24 @@ font#size / Pango.scale +  value in
+    font#modify ~size:(size * Pango.scale) ();
+    Gui.set_font font#to_string;
+    OBuf.trigger_reindent buf OBuf.reindent_full
+
   let quit main_window buf =
     if OBuf.is_modified buf then
       Gui.Dialogs.quit (OBuf.filename buf)
@@ -141,7 +150,8 @@ let init ?name ?contents main_window =
   @@ nil;
   Gui.Controls.bind `SAVE    @@ get_buf @@ BufActions.save_to_file ~ask:false
   @@ nil;
-  Gui.Controls.bind `PREFERENCES @@ get_buf @@ BufActions.preferences;
+  Gui.Controls.bind `ZOOM_IN @@ get_buf @@ BufActions.zoom (+1);
+  Gui.Controls.bind `ZOOM_OUT @@ get_buf @@ BufActions.zoom (-1);
   Gui.Controls.bind `QUIT    @@ get_buf @@ BufActions.quit main_window;
   (* Initialize the top-level buffer and actions *)
   let toplevel_buffer = TopUi.create_buffer () in

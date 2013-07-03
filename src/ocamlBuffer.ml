@@ -121,6 +121,7 @@ module Tags = struct
       fun () ->
         if !char_width <> !Cfg.char_width then
           (char_width := !Cfg.char_width;
+           phrase#set_property (`INDENT (2 * !char_width));
            Hashtbl.iter (fun n t -> t#set_property (`INDENT (n * !char_width)))
              indent_tags)
     in
