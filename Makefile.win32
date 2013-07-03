@@ -53,7 +53,7 @@ inst/data.wxs: inst/ocaml-top
 
 inst/dlls.wxs: inst/ocaml-top
 	cd inst && mkdir dll && cp ocaml-top/*.dll dll && \
-	$(WIXDIR)/heat.exe dir dll -srd -dr INSTALLDIR -cg dlls -gg -var var.DllDir \
+	$(WIXDIR)/heat.exe dir dll -srd -dr WINSYSDIR -cg dlls -gg -var var.DllDir \
 	  -out dlls.wxs
 	rm -rf inst/dll
 

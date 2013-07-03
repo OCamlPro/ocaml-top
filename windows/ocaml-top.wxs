@@ -36,8 +36,6 @@
                         WorkingDirectory='INSTALLDIR' Icon="icon.ico"
                         Advertise="yes" />
             </File>
-            <!-- does'nt work, we might need to mess with the registry to have INSTALLDIR
-                 set correctly (http://stackoverflow.com/questions/11854536/can-wix-progid-set-the-working-directory) -->
             <ProgId Id='ocaml_top.mlfile' Description="OCaml source file" Icon='icon.ico'
                     Advertise="yes">
               <Extension Id='ml' ContentType='text/x-ml-source' Advertise="yes">
@@ -58,7 +56,10 @@
       </Directory>
 
       <Directory Id="DesktopFolder" Name="Desktop" />
+      <Directory Id="WINSYSDIR" />
     </Directory>
+
+    <SetDirectory Id="WINSYSDIR" Value="[SystemFolder]"/>
 
     <!--Feature Id='Complete' Level='1'-->
     <Feature Id='Complete' Title='OCaml-Top 0.1' Description='OCaml-Top complete install.'
