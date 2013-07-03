@@ -60,3 +60,7 @@ inst/dlls.wxs: inst/ocaml-top
 ocaml-top.msi: inst/data.wixobj inst/dlls.wixobj windows/ocaml-top.wixobj
 	cd inst && $(WIXDIR)/light.exe -ext WixUIExtension -out ../ocaml-top.msi \
 	   data.wixobj dlls.wixobj ../windows/ocaml-top.wixobj
+
+.PHONY: testmsi
+testmsi: ocaml-top.msi
+	msiexec /i $^ /l'*' msi.log
