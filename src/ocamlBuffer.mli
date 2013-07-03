@@ -67,6 +67,6 @@ module Tags: sig
 end
 
 module GSourceView_params: sig
-  val syntax: GSourceView2.source_language option
-  val style: GSourceView2.source_style_scheme option
+  val syntax: unit -> GSourceView2.source_language option
+  val style: unit -> GSourceView2.source_style_scheme option
 end

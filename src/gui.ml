@@ -42,7 +42,7 @@ module Controls = struct
     in
     let file =
       let (/) = Filename.concat in
-      Cfg.datadir / "icons" / name ^ ".png"
+      !Cfg.datadir / "icons" / name ^ ".png"
     in
     let pixbuf = GdkPixbuf.from_file_at_size file ~width:22 ~height:22 in
     let img = GMisc.image ~pixbuf () in
@@ -123,8 +123,8 @@ let pack objs (container: GPack.box) =
 
 let as_widget o = (o :> GObj.widget)
 
-let main_window =
-  let logo = GdkPixbuf.from_file (Filename.concat Cfg.datadir "logo.png") in
+let main_window () =
+  let logo = GdkPixbuf.from_file (Filename.concat !Cfg.datadir "logo.png") in
   let tooltips = GData.tooltips () in
   let mkbutton ctrl =
     let label,text = Controls.help ctrl in
@@ -166,10 +166,8 @@ let main_window =
       |> add [
         GPack.paned `HORIZONTAL ()
         |> add [
-          (* GBin.frame ~label:"Source editor" ~shadow_type:`IN () *)
-          (* |> add [ *) main_view (* ] *);
-          (* GBin.frame ~label:"OCaml interaction" ~shadow_type:`IN () *)
-          (* |> add [ *) toplevel_view (* ]; *)
+          main_view;
+          toplevel_view;
         ];
       ];
     ]
@@ -188,8 +186,8 @@ let main_window =
       | Not_found -> false);
   win
 
-let set_window_title fmt =
-  Printf.ksprintf main_window#set_title (fmt ^^ " - ocaml-top")
+let set_window_title window fmt =
+  Printf.ksprintf window#set_title (fmt ^^ " - ocaml-top")
 
 let open_text_view buffer =
   Tools.debug "open text view";
@@ -210,7 +208,7 @@ let open_text_view buffer =
   List.iter main_view#remove main_view#children;
   let _set_mark_categories =
     let (/) = Filename.concat in
-    let icon name = GdkPixbuf.from_file (Cfg.datadir/"icons"/name^".png") in
+    let icon name = GdkPixbuf.from_file (!Cfg.datadir/"icons"/name^".png") in
     view#set_mark_category_pixbuf ~category:"block_mark"
       (Some (icon "block_marker"));
     view#set_mark_category_pixbuf ~category:"eval_next"

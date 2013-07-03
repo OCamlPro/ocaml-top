@@ -303,8 +303,8 @@ let topeval ?(full=false) buf top =
 let create_buffer () =
   let buffer =
     GSourceView2.source_buffer
-      ?language:OBuf.GSourceView_params.syntax
-      ?style_scheme:OBuf.GSourceView_params.style
+      ?language:(OBuf.GSourceView_params.syntax ())
+      ?style_scheme:(OBuf.GSourceView_params.style ())
       ~highlight_matching_brackets:false
       ~highlight_syntax:true
       ?undo_manager:None

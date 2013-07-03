@@ -77,12 +77,12 @@ module BufActions = struct
       OBuf.trigger_reindent buf OBuf.reindent_full)
       ()
 
-  let quit buf =
+  let quit main_window buf =
     if OBuf.is_modified buf then
       Gui.Dialogs.quit (OBuf.filename buf)
         ~save:(fun () k -> save_to_file ~ask:false k buf)
-        ~quit:(fun () -> Gui.main_window#destroy ())
-    else Gui.main_window#destroy ()
+        ~quit:(fun () -> main_window#destroy ())
+    else main_window#destroy ()
 end
 
 module TopActions = struct
@@ -112,26 +112,26 @@ module TopActions = struct
       ~stop:top.TopUi.buffer#end_iter;
 end
 
-let init_code_view  buf =
+let init_code_view main_window buf =
   OBuf.setup_indent buf;
   let gbuf = buf.OBuf.gbuffer in
   let view = Gui.open_text_view gbuf in
   ignore @@ gbuf#connect#modified_changed ~callback:(fun () ->
-      Gui.set_window_title "%s%s"
+      Gui.set_window_title main_window "%s%s"
         (OBuf.filename_default buf)
         (if gbuf#modified then "*" else "")
     );
   view
 
-let init ?name ?contents () =
+let init ?name ?contents main_window =
   (* Initialize the source buffer and actions *)
   let buf_ref = ref (OBuf.create ?name ?contents ()) in
-  let view_ref = ref (init_code_view !buf_ref) in
+  let view_ref = ref (init_code_view main_window !buf_ref) in
   (* Completion.setup !buf_ref !view_ref; *)
   let get_buf k () = !buf_ref |> k in
   let set_buf buf =
     buf_ref := buf;
-    view_ref := init_code_view buf
+    view_ref := init_code_view main_window buf
     (* ; Completion.setup buf !view_ref *)
   in
   let nil () = () in
@@ -142,7 +142,7 @@ let init ?name ?contents () =
   Gui.Controls.bind `SAVE    @@ get_buf @@ BufActions.save_to_file ~ask:false
   @@ nil;
   Gui.Controls.bind `PREFERENCES @@ get_buf @@ BufActions.preferences;
-  Gui.Controls.bind `QUIT    @@ get_buf @@ BufActions.quit;
+  Gui.Controls.bind `QUIT    @@ get_buf @@ BufActions.quit main_window;
   (* Initialize the top-level buffer and actions *)
   let toplevel_buffer = TopUi.create_buffer () in
   let get_top f () = get_buf (f toplevel_buffer) () in
@@ -192,10 +192,12 @@ let init ?name ?contents () =
 
 let args =
   Arg.align [
-    "--ocaml", Arg.Set_string Cfg.ocaml_path,
+    "-ocaml", Arg.Set_string Cfg.ocaml_path,
     "PATH Set the ocaml toplevel executable";
-    "--font", Arg.Set_string Cfg.font,
+    "-font", Arg.Set_string Cfg.font,
     "FONT Choose the font to use, as for Gtk settings. It must be monospace";
+    "-datadir", Arg.Set_string Cfg.datadir,
+    "PATH Directory where to find ocaml-top resources";
     "--",
     Arg.Rest (fun s -> Cfg.ocaml_opts := !Cfg.ocaml_opts @ [s]),
     " Remaining arguments are passed to the ocaml toplevel"
@@ -218,6 +220,8 @@ let _ =
     output_string ch s)
     "ok"
   ;
+  let main_window = Gui.main_window ()
+  in
   let create () =
     match !file with
     | Some name ->
@@ -225,18 +229,20 @@ let _ =
           protect (Tools.File.load name)
             ~err:(fun () ->
                 Gui.Dialogs.choose_file `OPEN
-                  ~cancel:(fun () -> protect init (); Gui.main_window#show())
+                  ~cancel:(fun () ->
+                      protect init main_window;
+                      main_window#show())
                 @@ load)
           @@ fun contents ->
-            protect (init ~name ~contents) ();
-            Gui.main_window#show();
+            protect (init ~name ~contents) main_window;
+            main_window#show();
         in
         load name
     | None ->
-        (protect init (); Gui.main_window#show())
+        (protect init main_window; main_window#show())
   in
   ignore @@ GMain.Idle.add (fun () -> create (); false);
   Sys.set_signal Sys.sigint
-    (Sys.Signal_handle (fun _ -> Gui.main_window#destroy ()));
+    (Sys.Signal_handle (fun _ -> main_window#destroy ()));
   protect ~loop:true GMain.main ();
   Tools.debug "Goodbye !"

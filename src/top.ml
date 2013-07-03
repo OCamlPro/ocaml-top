@@ -153,7 +153,7 @@ let start schedule response_handler status_hook =
        spawned and, on windows, that messes up our process handling *)
     let args = !Cfg.ocamlrun_path :: !Cfg.ocaml_path :: !Cfg.ocaml_opts
                @ [ "-nopromptcont";
-                   "-init"; Filename.concat Cfg.datadir "toplevel_init.ml" ]
+                   "-init"; Filename.concat !Cfg.datadir "toplevel_init.ml" ]
     in
     Tools.debug "Running %S..." (String.concat " " args);
     Unix.create_process_env !Cfg.ocamlrun_path (Array.of_list args) env

@@ -15,16 +15,18 @@
 open Tools.Ops
 
 module GSourceView_params = struct
-  let syntax =
-    let mgr = GSourceView2.source_language_manager ~default:true in
-    mgr#set_search_path [Cfg.datadir];
-    let syn = mgr#language "ocp-edit-ocaml" in
+  let syntax_mgr = GSourceView2.source_language_manager ~default:true
+  let style_mgr = GSourceView2.source_style_scheme_manager ~default:true
+
+  let syntax () =
+    syntax_mgr#set_search_path [!Cfg.datadir];
+    let syn = syntax_mgr#language "ocp-edit-ocaml" in
     if syn = None then Tools.debug "WARNING: ocaml language def not found";
     syn
-  let style =
-    let mgr = GSourceView2.source_style_scheme_manager ~default:true in
-    mgr#set_search_path [Cfg.datadir];
-    let sty = mgr#style_scheme "cobalt" in
+
+  let style () =
+    style_mgr#set_search_path [!Cfg.datadir];
+    let sty = style_mgr#style_scheme "cobalt" in
     if sty = None then Tools.debug "WARNING: style def not found";
     sty
 end
@@ -348,8 +350,8 @@ let create ?name ?(contents="") () =
         (match name with Some n -> n | None -> "this file");
     GSourceView2.source_buffer
       ~text:contents
-      ?language:GSourceView_params.syntax
-      ?style_scheme:GSourceView_params.style
+      ?language:(GSourceView_params.syntax ())
+      ?style_scheme:(GSourceView_params.style ())
       ~highlight_matching_brackets:true
       ~highlight_syntax:true
       ~tag_table:Tags.table
