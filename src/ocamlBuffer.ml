@@ -15,16 +15,15 @@
 open Tools.Ops
 
 module GSourceView_params = struct
-  let syntax_mgr = GSourceView2.source_language_manager ~default:true
-  let style_mgr = GSourceView2.source_style_scheme_manager ~default:true
-
   let syntax () =
+    let syntax_mgr = GSourceView2.source_language_manager ~default:true in
     syntax_mgr#set_search_path [!Cfg.datadir];
     let syn = syntax_mgr#language "ocp-edit-ocaml" in
     if syn = None then Tools.debug "WARNING: ocaml language def not found";
     syn
 
   let style () =
+    let style_mgr = GSourceView2.source_style_scheme_manager ~default:true in
     style_mgr#set_search_path [!Cfg.datadir];
     let sty = style_mgr#style_scheme "cobalt" in
     if sty = None then Tools.debug "WARNING: style def not found";

@@ -230,6 +230,12 @@ let _ =
     output_string ch s)
     "ok"
   ;
+  let _reloc_gtk_conf_on_windows =
+    if Sys.os_type <> "Unix" then
+      let gtkrc = Filename.concat !Cfg.datadir "gtkrc" in
+      (try Glib.setenv "GTK_PATH" !Cfg.datadir true with Not_found -> ());
+      if Sys.file_exists gtkrc then GtkMain.Rc.parse gtkrc
+  in
   let main_window = Gui.main_window ()
   in
   let create () =

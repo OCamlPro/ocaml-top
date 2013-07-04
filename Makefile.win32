@@ -10,6 +10,7 @@ else
 endif
 
 WINLIBS=/cygdrive/c/usr/bin
+GTK_MODULES=/cygdrive/c/usr/lib/gtk-2.0/2.10.0/
 
 utils/mkwinapp$(EXEEXT): utils/mkwinapp.ml
 	ocamlfind ocamlopt -package unix -linkpkg -o $@ $^
@@ -28,7 +29,7 @@ clean:
 	rm -rf inst
 	rm -f ocaml-top$(EXEEXT) ocaml-top.msi
 
-RESOURCES = data/ocaml.lang data/def.lang data/cobalt.xml data/language2.rng data/toplevel_init.ml data/logo.png data/logo.ico
+RESOURCES = data/ocaml.lang data/def.lang data/cobalt.xml data/language2.rng data/toplevel_init.ml data/logo.png data/logo.ico data/gtkrc
 ICONS = $(wildcard data/icons/*.png)
 .PHONY: inst/ocaml-top
 inst/ocaml-top: ocaml-top$(EXEEXT) $(RESOURCES) $(ICONS)
@@ -39,6 +40,8 @@ inst/ocaml-top: ocaml-top$(EXEEXT) $(RESOURCES) $(ICONS)
 	cp $(ICONS) inst/ocaml-top/data/icons
 	cp $$(PATH=$(WINLIBS):$$PATH ldd ocaml-top.exe | awk '/usr\/bin/ { print $$3 }') \
 	  inst/ocaml-top
+	mkdir -p inst/ocaml-top/data/engines
+	cp $(GTK_MODULES)/engines/libwimp.dll inst/ocaml-top/data/engines
 
 ocaml-top.zip: inst/ocaml-top
 	cd inst && zip -r ../ocaml-top.zip ocaml-top
