@@ -156,8 +156,15 @@ let start schedule response_handler status_hook =
                    "-init"; Filename.concat !Cfg.datadir "toplevel_init.ml" ]
     in
     Tools.debug "Running %S..." (String.concat " " args);
-    Unix.create_process_env !Cfg.ocamlrun_path (Array.of_list args) env
-      top_stdin top_stdout top_stderr
+    try
+      Unix.create_process_env !Cfg.ocamlrun_path (Array.of_list args) env
+        top_stdin top_stdout top_stderr
+    with Unix.Unix_error _ ->
+      Tools.recover_error
+        "<b>Error</b>\n\n\
+         Could not run the ocaml toplevel, please check your installation:\n\
+         <b>%s %s</b>"
+        !Cfg.ocamlrun_path !Cfg.ocaml_path
   in
   List.iter Unix.close [top_stdin; top_stdout; top_stderr];
   Tools.debug "Ocaml process %d started: %s" ocaml_pid

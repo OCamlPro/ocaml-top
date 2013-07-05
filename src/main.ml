@@ -185,6 +185,7 @@ let init ?name ?contents main_window =
         Gui.Controls.enable `RESTART;
         Gui.Controls.enable `STOP
   in
+  status_change_hook Top.Starting;
   TopUi.top_start ~init ~status_change_hook toplevel_buffer;
   (* Don't worry about the change hook, it won't be triggered
      anymore once the gtk main loop has ended. *)
