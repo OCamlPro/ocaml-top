@@ -91,7 +91,7 @@ value terminate(value pid_val)
   HANDLE pid = (HANDLE) Long_val(pid_val);
 
   if (!TerminateProcess(pid,137))
-    ErrorMsg(TEXT("TerminateProcess"));
+    /* ErrorMsg(TEXT("TerminateProcess")) */;
 
   CAMLreturn (Val_unit);
 }
