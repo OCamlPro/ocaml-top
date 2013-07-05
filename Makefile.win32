@@ -12,6 +12,8 @@ endif
 WINLIBS=/cygdrive/c/usr/bin
 GTK_MODULES=/cygdrive/c/usr/lib/gtk-2.0/2.10.0/
 
+all: ocaml-top.exe
+
 utils/mkwinapp$(EXEEXT): utils/mkwinapp.ml
 	ocamlfind ocamlopt -package unix -linkpkg -o $@ $^
 

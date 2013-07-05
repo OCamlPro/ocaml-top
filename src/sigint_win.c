@@ -62,24 +62,31 @@ value send_sigint(value pid_val)
 {
   CAMLparam1 (pid_val);
 
-  HANDLE pid = (HANDLE) Long_val(pid_val);
+  HANDLE hdl = (HANDLE) Long_val(pid_val);
+  DWORD pid = GetProcessId(hdl);
 
   /* for now, we are attached to the same console as the toplevel,
      which makes the following simpler; */
 
   // detach current console (if any)
-  /* if (!FreeConsole()) */
-  /*   ErrorMsg(TEXT("FreeConsole")); */
+  if (!FreeConsole())
+    /* ErrorMsg(TEXT("FreeConsole")) */;
 
-  // attach to process sg(TEXT("AttachConsole"));
+  // attach to process
+  if (!AttachConsole(pid))
+    /* ErrorMsg(TEXT("AttachConsole")) */;
 
   // current process should ignore ctrl_c, it will be sent to it too
   if (!SetConsoleCtrlHandler(NULL, TRUE))
-    ErrorMsg(TEXT("SetConsoleCrtlHandler"));
+    ErrorMsg(TEXT("SetConsoleCtrlHandler"));
 
   // generate Control+C event
   if (!GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0))
     ErrorMsg(TEXT("GenerateConsoleCtrlEvent"));
+
+  // restore ctrl_c behaviour
+  if (!SetConsoleCtrlHandler(NULL, FALSE))
+    ErrorMsg(TEXT("SetConsoleCtrlHandler"));
 
   CAMLreturn (Val_unit);
 }

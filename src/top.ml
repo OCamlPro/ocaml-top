@@ -244,15 +244,19 @@ let query t q cont =
 external sigint : int -> unit = "send_sigint"
 let stop t =
   match t.status with
-  | Busy _ -> sigint t.pid
-  | Ready | Starting | Dead -> ()
+  | Busy _ ->
+      Tools.debug "Top.stop (): Sending SIGINT to ocaml process %d" t.pid;
+      sigint t.pid
+  | Ready | Starting | Dead ->
+      Tools.debug "Top.stop (): No action needed";
+      ()
 
 external terminate : int -> unit = "terminate"
 let kill t =
   match t.status with
   | Dead ->
-      Tools.debug
-        "Not killing toplevel %d: according to the records, it's already dead."
+      Tools.debug "Top.kill (): Not killing toplevel %d (it's already dead ?)"
         t.pid
   | Ready | Starting | Busy _ ->
+      Tools.debug "Top.kill (): terminating ocaml process %d" t.pid;
       terminate t.pid
