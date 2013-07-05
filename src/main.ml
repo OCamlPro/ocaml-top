@@ -204,6 +204,8 @@ let args =
   Arg.align [
     "-ocaml", Arg.Set_string Cfg.ocaml_path,
     "PATH Set the ocaml toplevel executable";
+    "-ocamlrun", Arg.Set_string Cfg.ocamlrun_path,
+    "PATH Set the ocaml bytecode interpreter";
     "-font", Arg.Set_string Cfg.font,
     "FONT Choose the font to use, as for Gtk settings. It must be monospace";
     "-datadir", Arg.Set_string Cfg.datadir,
