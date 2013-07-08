@@ -125,11 +125,13 @@ let init_code_view main_window buf =
   OBuf.setup_indent buf;
   let gbuf = buf.OBuf.gbuffer in
   let view = Gui.open_text_view gbuf in
-  ignore @@ gbuf#connect#modified_changed ~callback:(fun () ->
-      Gui.set_window_title main_window "%s%s"
-        (OBuf.filename_default buf)
-        (if gbuf#modified then "*" else "")
-    );
+  let set_title () =
+    Gui.set_window_title main_window "%s%s"
+      (OBuf.filename_default buf)
+      (if gbuf#modified then "*" else "")
+  in
+  ignore @@ gbuf#connect#modified_changed ~callback:set_title;
+  set_title ();
   view
 
 let init ?name ?contents main_window =
