@@ -33,11 +33,11 @@ type response =
   | Exited (** The toplevel exited or was terminated *)
 
 (** Start a toplevel process.
-    @param [schedule] will be run from a secondary thread and should schedule
+    @param schedule will be run from a secondary thread and should schedule
            a function for execution in the main thread at a later point.
-    @param [response_handler] is a callback that will be called on  output
+    @param response_handler is a callback that will be called on  output
            from ocaml.
-    @param [status_change_hook] will be called whenever the status changes
+    @param status_change_hook will be called whenever the status changes
 *)
 val start :
   ((unit -> unit) -> 'a) ->
