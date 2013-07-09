@@ -21,7 +21,7 @@ module Controls = struct
            | `EXECUTE | `EXECUTE_ALL | `STOP | `RESTART | `CLEAR
            | `PREFERENCES | `ZOOM_IN | `ZOOM_OUT | `QUIT ]
 
-  let stock: t -> GtkStock.id = function
+  let stock (*: t -> GtkStock.id*) = function
     | `RESTART -> `REFRESH
     | `EXECUTE_ALL -> `MEDIA_FORWARD
     | #GtkStock.id as id -> id
