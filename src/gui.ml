@@ -256,6 +256,7 @@ let open_toplevel_view top_buf =
   view#misc#modify_font_by_name !Cfg.font;
   toplevel_view#add (view :> GObj.widget);
   view#misc#set_size_request ~width:578 ();
+  view#misc#set_can_focus false;
   view
 
 let set_font str =
