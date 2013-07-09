@@ -62,6 +62,9 @@ module BufActions = struct
     | Some name when ask = false -> save name |> k
     | _ ->
         Gui.Dialogs.choose_file `SAVE @@ fun name ->
+          let name =
+            if String.contains name '.' then name else name ^ ".ml"
+          in
           if Sys.file_exists name then
             Gui.Dialogs.confirm ~title:"Overwrite ?"
               (Printf.sprintf "File %s already exists. Overwrite ?" name)
