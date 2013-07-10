@@ -64,6 +64,23 @@ let string_split_chars chars str =
   in
   split 0
 
+let split_lines str =
+  let len = String.length str in
+  let rec get_nls i =
+    if i >= len then []
+    else if str.[i] = '\n' then i::get_nls (succ i)
+    else get_nls (succ i)
+  in
+  let nls = get_nls 0 in
+  let string_sub str start stop =
+    let start =
+      if start < stop && str.[start] = '\n' then start + 1 else start in
+    let stop =
+      if stop > start && str.[stop-1] = '\r' then stop - 1 else stop in
+    String.sub str start (stop - start)
+  in
+  List.map2 (string_sub str) (0::nls) (nls@[len])
+
 module File = struct
 
   let load : 'a. string -> (string -> 'a) -> 'a = fun filename k ->

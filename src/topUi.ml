@@ -121,8 +121,7 @@ let display_stdout top response =
           (insert_top ~tags:[OBuf.Tags.stdout] top top.stdout_mark "\n";
            disp_lines rest)
   in
-  let lines = Tools.string_split_chars "\r\n" response in
-  disp_lines lines
+  disp_lines (Tools.split_lines response)
 
 let display_top_response top response =
   let rec disp_lines = function
@@ -137,8 +136,7 @@ let display_top_response top response =
           (insert_top top top.ocaml_mark "\n";
            disp_lines rest)
   in
-  let lines = Tools.string_split_chars "\r\n" response in
-  disp_lines lines
+  disp_lines (Tools.split_lines response)
 
 (* Marks characters start_char..end_char within region start_mark..end_mark *)
 let mark_error_in_source_buffer buf start_mark end_mark start_char end_char =
@@ -229,7 +227,7 @@ let handle_response top response response_start_mark
             top.buffer#apply_tag OBuf.Tags.ocamltop ~start:iter ~stop;
             parse_response success stop lines
   in
-  let lines = Tools.string_split_chars "\r\n" response in
+  let lines = Tools.split_lines response in
   let response_iter = top.buffer#get_iter_at_mark response_start_mark in
   parse_response true response_iter lines
 

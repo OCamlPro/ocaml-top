@@ -31,6 +31,11 @@ val recover_error: ('a, unit, string, 'b) format4 -> 'a
     belonging to [chars]. Empty strings are discarded. *)
 val string_split_chars: string -> string -> string list
 
+(** Splits a string into lines. Newline characters are discarded. Windows
+    compatible. If the string ends with a newline, the result will end with
+    an empty string (so that no information is lost) *)
+val split_lines: string -> string list
+
 module File: sig
   val load: string -> (string -> 'a) -> 'a
 
