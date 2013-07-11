@@ -25,54 +25,35 @@ type top = {
   prompt_mark: GText.mark;
 }
 
-let rec get_phrases buf (start:GText.iter) (stop:GText.iter) =
+
+let get_phrases buf (start:GText.iter) (stop:GText.iter) =
   let gbuf = buf.OBuf.gbuffer in
-  let next = OBuf.next_beg_of_phrase buf start in
-  let eop = OBuf.skip_space_backwards buf ~limit:start next in
-  let eop =
-    let st = eop#backward_chars 2 in
-    if st#get_text ~stop:eop = ";;" then
-      OBuf.skip_space_backwards buf ~limit:start st
-    else eop
-  in
-  let eop =
-    if eop#contents = `CHAR (Glib.Utf8.first_char "\n") then eop#forward_char
-    else eop
-  in
-  if eop#offset >= stop#offset || eop#equal gbuf#end_iter then
-    [gbuf#get_text ~start ~stop (),
-     OBuf.get_indented_text ~start ~stop buf,
-     `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop)]
-  else
-    (gbuf#get_text ~start ~stop:eop (),
-     OBuf.get_indented_text ~start ~stop:eop buf,
-     `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark eop))
-    :: get_phrases buf next stop
+  let bounds = OBuf.get_phrases buf ~start ~stop in
+  List.map
+    (fun (start,stop) ->
+       gbuf#get_text ~start ~stop (),
+       OBuf.get_indented_text ~start ~stop buf,
+       `MARK (gbuf#create_mark start), `MARK (gbuf#create_mark stop))
+    bounds
 
 let region_to_eval buf =
   let gbuf = buf.OBuf.gbuffer in
   let eval_iter = gbuf#get_iter_at_mark buf.OBuf.eval_mark#coerce in
   let eval_iter =
-    if
-      gbuf#source_marks_at_iter ~category:"block_mark"
-        (OBuf.skip_space_forwards buf eval_iter)
-      = []
-    then
+    if gbuf#source_marks_at_iter ~category:"end_block_mark" eval_iter = [] then
       (* the block marks have changed, making the eval_mark invalid.
          Rewind it to the last block mark *)
-      let last_phrase =
-        OBuf.last_beg_of_phrase ~default:OBuf.first_beg_of_phrase buf eval_iter
-      in
+      let last_phrase = OBuf.last_end_of_phrase buf eval_iter in
       gbuf#move_mark buf.OBuf.eval_mark#coerce ~where:last_phrase;
       last_phrase
     else
       eval_iter
   in
   let point = gbuf#get_iter `INSERT in
-  let next_point = OBuf.next_beg_of_phrase buf point in
+  let start, next_point = OBuf.phrase_bounds buf point in
   let last_point =
-    if eval_iter#offset < point#offset then eval_iter
-    else OBuf.last_beg_of_phrase ~default:OBuf.first_beg_of_phrase buf point
+    if eval_iter#offset < start#offset then eval_iter
+    else start
   in
   last_point, next_point
 
@@ -255,10 +236,11 @@ let topeval ?(full=false) buf top =
            (gbuf#get_iter_at_mark buf.OBuf.eval_mark_end#coerce)#offset
       ->
         (* eval_end has been moved back, meaning the code was just edited *)
+        Tools.debug "Stopping evaluation, eval_end was rolled back (%d > %d)"
+          (gbuf#get_iter_at_mark stop_mark)#offset
+          (gbuf#get_iter_at_mark buf.OBuf.eval_mark_end#coerce)#offset;
         cleanup_source_marks phrases
-    | (_,indented,start_mark,stop_mark) :: rest
-      when String.trim indented = ""
-      ->
+    | ((""|";;"),_,start_mark,stop_mark) :: rest ->
         gbuf#delete_mark start_mark;
         gbuf#delete_mark stop_mark;
         eval_phrases rest

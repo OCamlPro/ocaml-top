@@ -220,6 +220,9 @@ let open_text_view buffer =
     let icon name = GdkPixbuf.from_file (!Cfg.datadir/"icons"/name^".png") in
     view#set_mark_category_pixbuf ~category:"block_mark"
       (Some (icon "block_marker"));
+    view#set_mark_category_pixbuf ~category:"end_block_mark"
+      (if Tools.debug_enabled then Some (icon "end_block_marker")
+       else None);
     view#set_mark_category_pixbuf ~category:"eval_next"
       (if Tools.debug_enabled then Some (icon "eval_marker_next")
        else None);
@@ -227,6 +230,7 @@ let open_text_view buffer =
       (Some (icon "eval_marker"));
     view#set_mark_category_pixbuf ~category:"error"
       (Some (icon "err_marker"));
+    view#set_mark_category_priority ~category:"end_block_mark" 0;
     view#set_mark_category_priority ~category:"block_mark" 1;
     view#set_mark_category_priority ~category:"eval_next" 3;
     view#set_mark_category_priority ~category:"eval" 4;

@@ -44,8 +44,8 @@ type t = {
   mutable need_reindent: reindent_needed;
   eval_mark: GSourceView2.source_mark;
   eval_mark_end: GSourceView2.source_mark;
-  (* ordered from bottom to top *)
-  mutable block_marks: GSourceView2.source_mark list;
+  mutable block_marks:
+    (GSourceView2.source_mark * GSourceView2.source_mark) list;
   mutable on_reindent: unit -> unit;
 }
 
@@ -142,46 +142,45 @@ module Tags = struct
           t
 end
 
-let skip_space_backwards buf ?(limit=buf.gbuffer#start_iter) (iter:GText.iter) =
-  let limit = limit#backward_char in
-  let it =
-    iter#backward_find_char ~limit (fun c -> not (Glib.Unichar.isspace c))
+(* if iter is between two phrases, will return the phrase before it (or
+   (iter,iter)) if there is none *)
+let phrase_bounds buf (iter: GText.iter) =
+  let rec find (start,stop) = function
+    | (start_mark, end_mark)::r ->
+        let bop = buf.gbuffer#get_iter_at_mark start_mark#coerce in
+        let eop = buf.gbuffer#get_iter_at_mark end_mark#coerce in
+        if eop#offset >= iter#offset then
+          if bop#offset > iter#offset then start, stop
+          else bop, eop
+        else find (bop, eop) r
+    | [] -> start, stop
   in
-  it#forward_char
+  find (iter,iter) buf.block_marks
 
-let skip_space_forwards buf ?limit (iter:GText.iter) =
-  iter#forward_find_char ?limit (fun c -> not (Glib.Unichar.isspace c))
-
-
-let next_beg_of_phrase buf (iter: GText.iter) =
-  (* we got buf.gbuffer#forward/backward_iter_to_source_mark, but it uses
-     side-effects on the iters, aughh. *)
-  let offset = iter#offset in
-  List.fold_left
-    (fun acc mark ->
-       let it = buf.gbuffer#get_iter_at_mark mark#coerce in
-       if it#offset < acc#offset && it#offset > offset then it else acc)
-    buf.gbuffer#end_iter
-    buf.block_marks
-
-let last_beg_of_phrase buf
-    ?(default  = fun buf -> buf.gbuffer#start_iter)
-    (iter: GText.iter) =
-  let offset = iter#offset in
-  let it_opt =
-    List.fold_left
-      (fun acc mark ->
-         let it = buf.gbuffer#get_iter_at_mark mark#coerce in
-         if acc = None && it#offset <= offset then Some it else acc)
-      None
-      buf.block_marks
+let get_phrases buf ~start ~stop =
+  let min a b = if a#offset <= b#offset then a else b in
+  let max a b = if a#offset >= b#offset then a else b in
+  let rec find = function
+    | (start_mark, end_mark)::r ->
+        let bop = buf.gbuffer#get_iter_at_mark start_mark#coerce in
+        let eop = buf.gbuffer#get_iter_at_mark end_mark#coerce in
+        if eop#offset < start#offset || stop#offset < bop#offset then
+          find r
+        else
+          (max start bop, min stop eop) :: find r
+    | [] -> []
   in
-  match it_opt with Some it -> it | None -> default buf
+  find buf.block_marks
 
-let first_beg_of_phrase buf =
-  let rec last = function [x] -> x | x::y -> last y | [] -> raise Not_found in
-  try buf.gbuffer#get_iter_at_mark (last buf.block_marks)#coerce
-  with Not_found -> buf.gbuffer#start_iter
+let last_end_of_phrase buf (iter: GText.iter) =
+  let rec find acc = function
+    | (_, end_mark)::r ->
+        let eop = buf.gbuffer#get_iter_at_mark end_mark#coerce in
+        if eop#offset >= iter#offset then acc
+        else find eop r
+    | [] -> acc
+  in
+  find buf.gbuffer#start_iter buf.block_marks
 
 let reindent_line n = Reindent_line n
 let reindent_after n = Reindent_after n
@@ -214,18 +213,32 @@ let reindent t =
     | Reindent_after l -> (fun n -> n >= l + 1)
     | Reindent_full -> (fun _ -> true)
   in
-  let buf_indent block elt (last,line,col,block_marks) =
+  let buf_indent block elt (last,line,col,block_marks,end_block_marks) =
     match elt with
     | IndentPrinter.Whitespace w ->
-      last, line, col + String.length w, block_marks
+      last, line, col + String.length w, block_marks, end_block_marks
+    | IndentPrinter.Text "" ->
+      last, line, col, block_marks, end_block_marks
     | IndentPrinter.Text txt ->
       if IndentBlock.is_in_comment block then
-        last, line, col + String.length txt, block_marks
+        last, line, col + String.length txt, block_marks, end_block_marks
       else
+        let last_txt, last_line, last_col = last in
+        let is_toplevel =
+          IndentBlock.is_at_top block && block <> IndentBlock.empty ||
+          last_txt = ";;"
+        in
+        let end_block_marks =
+          if is_toplevel && block_marks <> [] then
+            buf#create_source_mark
+              ~name:("end_block."^string_of_int (List.length end_block_marks))
+              ~category:"end_block_mark"
+              ((buf#get_iter (`LINE (last_line - 1)))#forward_chars last_col)
+            :: end_block_marks
+          else end_block_marks
+        in
         let block_marks =
-          if IndentBlock.is_at_top block && block <> IndentBlock.empty ||
-             last = ";;"
-          then
+          if is_toplevel then
             buf#create_source_mark
               ~name:("block."^string_of_int (List.length block_marks))
               ~category:"block_mark"
@@ -233,9 +246,13 @@ let reindent t =
             :: block_marks
           else block_marks
         in
-        txt, line, col + String.length txt, block_marks
+        let last =
+          if txt = ";;" && last_txt <> ";;" then txt, last_line, last_col
+          else txt, line, col + String.length txt
+        in
+        last, line, col + String.length txt, block_marks, end_block_marks
     | IndentPrinter.Newline ->
-      last, line + 1, 0, block_marks
+      last, line + 1, 0, block_marks, end_block_marks
     | IndentPrinter.Indent indent ->
       if in_lines line then
         let start = buf#get_iter (`LINE (line - 1)) in
@@ -259,9 +276,9 @@ let reindent t =
             | Some _ | None -> ())
           start#tags;
         buf#apply_tag (Tags.indent t indent) ~start:start#backward_char ~stop;
-        last, line, col, block_marks
+        last, line, col, block_marks, end_block_marks
       else
-        last, line, col, block_marks
+        last, line, col, block_marks, end_block_marks
   in
   let input =
     Nstream.of_string
@@ -278,15 +295,27 @@ let reindent t =
     kind = IndentPrinter.Extended buf_indent;
   }
   in
-  (* Don't use remove_source_marks, it can segfault *)
-  let _ = List.iter (fun mark -> buf#delete_mark mark#coerce) t.block_marks in
-  let block_marks = []
-    (* [buf#create_source_mark ~name:("block.0") ~category:"block_mark" (buf#start_iter)] *)
+  let _cleanup_marks =
+    buf#remove_source_marks ~category:"block_mark"
+      ~start:buf#start_iter ~stop:buf#end_iter ();
+    buf#remove_source_marks ~category:"end_block_mark"
+      ~start:buf#start_iter ~stop:buf#end_iter ()
   in
-  let _last, _line, _col, block_marks =
-    IndentPrinter.proceed output input IndentBlock.empty (";;",1,0,block_marks)
+  let init = ";;", 1, 0 in
+  let (_txt, last_line, last_col), _line, _col, block_marks, end_block_marks =
+    IndentPrinter.proceed output input IndentBlock.empty (init,1,0,[],[])
   in
-  t.block_marks <- block_marks
+  let end_block_marks =
+    if block_marks <> [] then
+      buf#create_source_mark
+        ~name:("end_block."^string_of_int (List.length end_block_marks))
+        ~category:"end_block_mark"
+        ((buf#get_iter (`LINE (last_line - 1)))#forward_chars last_col)
+      :: end_block_marks
+    else end_block_marks
+  in
+  t.block_marks <-
+    List.rev_map2 (fun a b -> a,b) block_marks end_block_marks
 
 let trigger_reindent ?cont t reindent_needed =
   (match cont with
@@ -413,11 +442,11 @@ let setup_indent buf =
     );
   ignore @@ gbuf#connect#changed
       ~callback:(fun () ->
-          let it = gbuf#get_iter `INSERT in
+          let cursor = gbuf#get_iter `INSERT in
           let replace_before_cursor mark =
             let iter = gbuf#get_iter_at_mark mark#coerce in
-            if it#offset < iter#offset then
-              gbuf#move_mark mark#coerce ~where:(last_beg_of_phrase buf it)
+            if cursor#offset <= iter#offset then
+              gbuf#move_mark mark#coerce ~where:(last_end_of_phrase buf cursor)
           in
           replace_before_cursor buf.eval_mark;
           replace_before_cursor buf.eval_mark_end)

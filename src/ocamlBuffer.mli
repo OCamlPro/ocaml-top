@@ -21,7 +21,8 @@ type t = private {
   eval_mark: GSourceView2.source_mark;
   eval_mark_end: GSourceView2.source_mark;
   (* ordered from bottom to top *)
-  mutable block_marks: GSourceView2.source_mark list;
+  mutable block_marks:
+    (GSourceView2.source_mark * GSourceView2.source_mark) list;
   mutable on_reindent: unit -> unit;
 }
 
@@ -39,13 +40,11 @@ val reindent_after: int -> reindent_needed
 val reindent_full: reindent_needed
 val trigger_reindent: ?cont:(unit -> unit) -> t -> reindent_needed -> unit
 
-val skip_space_backwards: t -> ?limit:GText.iter -> GText.iter -> GText.iter
-val skip_space_forwards: t -> ?limit:GText.iter -> GText.iter -> GText.iter
-
 (* These use information from the indenter, make sure it is up-to-date *)
-val next_beg_of_phrase: t -> GText.iter -> GText.iter
-val last_beg_of_phrase: t -> ?default:(t -> GText.iter) -> GText.iter -> GText.iter
-val first_beg_of_phrase: t -> GText.iter
+val phrase_bounds: t -> GText.iter -> GText.iter * GText.iter
+val get_phrases: t -> start:GText.iter -> stop:GText.iter
+  -> (GText.iter * GText.iter) list
+val last_end_of_phrase: t -> GText.iter -> GText.iter
 
 val get_indented_text: start:GText.iter -> stop:GText.iter -> t -> string
 val contents: t -> string
