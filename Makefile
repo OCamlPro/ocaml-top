@@ -29,7 +29,7 @@ clean:
 
 .PHONY: install
 RESOURCES = data/ocaml.lang data/cobalt.xml data/def.lang data/language2.rng data/toplevel_init.ml data/logo.png
-ICONS = $(wildcard data/icons/*.png)
+ICONS = $(wildcard data/icons/*.png) $(wildcard data/icons/*.gif)
 INSTALL_PREFIX = $$(ocp-build -query-install-dir ocaml-top)/../..
 DATADIR = $(INSTALL_PREFIX)/share/ocaml-top
 install: $(NATIVE)
