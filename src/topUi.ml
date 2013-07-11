@@ -188,7 +188,11 @@ let handle_response top response response_start_mark
                 | "Error" | "Warning" -> true
                 | _ -> false
             in
-            let msg2, rest = split_when [line] lines next_msg_line in
+            let msg2, rest =
+              match rest with
+              | hd::tl -> split_when [hd] tl next_msg_line
+              | [] -> [], []
+            in
             let _ =
               try
                 Scanf.sscanf line "Characters %d-%d" @@
