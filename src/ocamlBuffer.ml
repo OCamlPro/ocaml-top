@@ -325,14 +325,19 @@ let trigger_reindent ?cont t reindent_needed =
   | No_reindent | Reindent_delayed _ ->
     t.need_reindent <- reindent_max t.need_reindent reindent_needed;
     ignore @@ GMain.Idle.add @@ fun () ->
-      ignore @@ reindent t;
+      let ok =
+        try ignore @@ reindent t; true
+        with e -> Tools.debug "Exception in reindent: %s\n%s"
+                    (Printexc.to_string e) (Printexc.get_backtrace ());
+            false
+      in
       t.need_reindent <-
         (match reindent_needed with
          | Reindent_line l -> Reindent_delayed l
          | _ -> No_reindent);
       let ct = t.on_reindent in
       t.on_reindent <- (fun () -> ());
-      ct ();
+      if ok then ct ();
       false
   | current ->
     t.need_reindent <- reindent_max current reindent_needed
@@ -432,7 +437,9 @@ let setup_indent buf =
           trigger_reindent buf (Reindent_after l)
       | _ -> ()
     );
-  ignore @@ reindent buf;
+  (try ignore @@ reindent buf with e ->
+      Tools.debug "Exception in reindent: %s\n%s"
+        (Printexc.to_string e) (Printexc.get_backtrace ()));
   buf.need_reindent <- No_reindent;
   unmodify buf;
   ignore @@ gbuf#connect#delete_range ~callback:(fun ~start ~stop ->

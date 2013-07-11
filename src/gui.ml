@@ -82,6 +82,12 @@ module Controls = struct
           c
 
   let bind command action =
+    let action x =
+      try action x with e ->
+          Tools.debug "Exception during action of command %s: %s\n%s"
+            (to_string command)
+            (Printexc.to_string e) (Printexc.get_backtrace ())
+    in
     ignore @@ (signal command)#connect#activate ~callback:action
 
   let trigger command =
