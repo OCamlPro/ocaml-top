@@ -32,7 +32,7 @@ clean:
 	rm -f ocaml-top$(EXEEXT) ocaml-top.msi
 
 RESOURCES = data/ocaml.lang data/def.lang data/cobalt.xml data/language2.rng data/toplevel_init.ml data/logo.png data/logo.ico data/gtkrc
-ICONS = $(wildcard data/icons/*.png)
+ICONS = $(wildcard data/icons/*.png) $(wildcard data/icons/*.gif)
 .PHONY: inst/ocaml-top
 inst/ocaml-top: ocaml-top$(EXEEXT) $(RESOURCES) $(ICONS)
 	rm -rf inst

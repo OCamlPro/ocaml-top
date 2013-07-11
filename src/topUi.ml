@@ -304,6 +304,26 @@ let create_buffer () =
   { buffer; process = None;
     stdout_mark; ocaml_mark; prompt_mark }
 
+let show_spinner top (view: GSourceView2.source_view) =
+  let spinner_mark = `MARK (duplicate_mark top.buffer top.prompt_mark) in
+  let anim () =
+    let (/) = Filename.concat in
+    GMisc.image ~file:(!Cfg.datadir / "icons" / "spinner.gif") ()
+  in
+  fun enable ->
+    if enable then
+      let iter = top.buffer#get_iter_at_mark top.prompt_mark in
+      top.buffer#move_mark spinner_mark ~where:iter;
+      ignore @@ top.buffer#create_child_anchor iter;
+      let iter = top.buffer#get_iter_at_mark spinner_mark in
+      match iter#contents with
+      | `CHILD anchor ->
+          view#add_child_at_anchor (anim())#coerce anchor
+      | _ -> Tools.debug "show_spinner: couldn't find anchor"
+    else
+      let iter = top.buffer#get_iter_at_mark spinner_mark in
+      top.buffer#delete ~start:iter ~stop:iter#forward_char
+
 let rec top_start ~init ~status_change_hook top =
   let schedule f = GMain.Idle.add @@ fun () ->
       try f (); false with e ->

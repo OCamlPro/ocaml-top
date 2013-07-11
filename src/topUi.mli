@@ -29,3 +29,5 @@ val top_start:
   -> unit
 
 val topeval: ?full:bool -> OcamlBuffer.t -> top -> unit
+
+val show_spinner:  top -> GSourceView2.source_view -> bool -> unit

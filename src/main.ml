@@ -166,6 +166,15 @@ let init ?name ?contents main_window =
   Gui.Controls.bind `STOP        @@ get_top @@ TopActions.stop;
   Gui.Controls.bind `RESTART     @@ get_top @@ TopActions.restart;
   Gui.Controls.bind `CLEAR       @@ get_top @@ TopActions.clear;
+  (* Create the toplevel view *)
+  let top_buf = toplevel_buffer.TopUi.buffer in
+  let top_view = Gui.open_toplevel_view top_buf in
+  Gui.set_font !Cfg.font;
+  ignore @@ top_buf#connect#after#changed ~callback:(fun () ->
+      ignore @@ GMain.Idle.add @@ fun () ->
+        ignore @@ top_view#scroll_to_iter
+            (top_buf#end_iter#set_line_offset 0);
+        false);
   (* Start the toplevel *)
   let init () =
     let buf = !buf_ref in
@@ -173,22 +182,27 @@ let init ?name ?contents main_window =
     buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark#coerce ~where;
     buf.OBuf.gbuffer#move_mark buf.OBuf.eval_mark_end#coerce ~where
   in
-  let status_change_hook = function
+  let status_change_hook =
+    let show_spinner = TopUi.show_spinner toplevel_buffer top_view in
+    function
     | Top.Dead | Top.Starting ->
         Gui.Controls.disable `EXECUTE;
         Gui.Controls.disable `EXECUTE_ALL;
         Gui.Controls.disable `RESTART;
-        Gui.Controls.disable `STOP
+        Gui.Controls.disable `STOP;
+        show_spinner false
     | Top.Ready ->
         Gui.Controls.enable `EXECUTE;
         Gui.Controls.enable `EXECUTE_ALL;
         Gui.Controls.enable `RESTART;
-        Gui.Controls.disable `STOP
+        Gui.Controls.disable `STOP;
+        show_spinner false
     | Top.Busy _ ->
         Gui.Controls.disable `EXECUTE;
         Gui.Controls.disable `EXECUTE_ALL;
         Gui.Controls.enable `RESTART;
-        Gui.Controls.enable `STOP
+        Gui.Controls.enable `STOP;
+        show_spinner true
   in
   status_change_hook Top.Starting;
   TopUi.top_start ~init ~status_change_hook toplevel_buffer;
@@ -198,14 +212,6 @@ let init ?name ?contents main_window =
       match toplevel_buffer.TopUi.process with
       | Some p -> Top.kill p
       | None -> ());
-  (* Create the toplevel view *)
-  let top_buf = toplevel_buffer.TopUi.buffer in
-  let top_view = Gui.open_toplevel_view top_buf in
-  Gui.set_font !Cfg.font;
-  ignore @@ top_buf#connect#after#changed ~callback:(fun () ->
-      ignore @@ GMain.Idle.add @@ fun () ->
-        ignore @@ top_view#scroll_to_iter (top_buf#end_iter#set_line_offset 0);
-        false);
   Tools.debug "Init done, showing main window"
 
 let args =
