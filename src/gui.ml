@@ -53,21 +53,21 @@ module Controls = struct
   let to_string command = GtkStock.convert_id (stock command)
 
   let help: t -> string * string = function
-    | `NEW -> "New","Create a new file"
-    | `OPEN -> "Open...","Select an existing file to edit"
-    | `SAVE -> "Save","Save the current file"
+    | `NEW -> "New","Create a new file [Ctrl n]"
+    | `OPEN -> "Open...","Select an existing file to edit [Ctrl o]"
+    | `SAVE -> "Save","Save the current file [Ctrl s]"
     | `SAVE_AS -> "Save as...","Select a file to save the current program to"
     | `EXECUTE -> "Run","Run the current program up to the cursor, \
-                         or the selection if any"
+                         or the selection if any [Ctrl e]"
     | `EXECUTE_ALL -> "Run to end",
                       "Run the current program as far as possible"
-    | `STOP -> "Stop","Stop ongoing program execution"
+    | `STOP -> "Stop","Stop ongoing program execution [Esc]"
     | `RESTART -> "Restart","Terminate the current toplevel and start a new one"
     | `CLEAR -> "Clear","Clear the toplevel window history"
     | `PREFERENCES -> "Setup","Configuration options"
-    | `ZOOM_IN -> "Zoom in","Make the font bigger"
-    | `ZOOM_OUT -> "Zoom out","Make the font smaller"
-    | `QUIT -> "Quit","Quit ocaml-top"
+    | `ZOOM_IN -> "Zoom in","Make the font bigger [Ctrl +]"
+    | `ZOOM_OUT -> "Zoom out","Make the font smaller [Ctrl -]"
+    | `QUIT -> "Quit","Quit ocaml-top [Ctrl q]"
 
   (* We could use lablgtk's action groups as well. But better map from an open
      variant than from strings... *)
@@ -121,7 +121,10 @@ let shortcuts = [
   ([`CONTROL], GdkKeysyms._e),      `EXECUTE;
   ([],         GdkKeysyms._Escape), `STOP;
   ([`CONTROL], GdkKeysyms._plus),   `ZOOM_IN;
+  ([`CONTROL], GdkKeysyms._equal),  `ZOOM_IN;
+  ([`CONTROL], GdkKeysyms._KP_Add), `ZOOM_IN;
   ([`CONTROL], GdkKeysyms._minus),  `ZOOM_OUT;
+  ([`CONTROL], GdkKeysyms._KP_Subtract), `ZOOM_OUT;
   ([`CONTROL], GdkKeysyms._q),      `QUIT;
 ]
 
