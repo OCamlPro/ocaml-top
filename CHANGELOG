@@ -1,0 +1,4 @@
+## 1.0.1
+* Fixed issues #24, #36, #37, #38, #39, mainly related to UI
+* Enhanced phrase boundary handling
+* Fixed ocaml message coloration
