@@ -151,24 +151,24 @@ let start schedule response_handler status_hook =
   let ocaml_pid =
     (* Run ocamlrun rather than ocaml directly, otherwise another process is
        spawned and, on windows, that messes up our process handling *)
-    let args = !Cfg.ocamlrun_path :: !Cfg.ocaml_path :: !Cfg.ocaml_opts
+    let args = !Cfg.ocaml_cmd :: !Cfg.ocaml_opts
                @ [ "-nopromptcont";
                    "-init"; Filename.concat !Cfg.datadir "toplevel_init.ml" ]
     in
     Tools.debug "Running %S..." (String.concat " " args);
     try
-      Unix.create_process_env !Cfg.ocamlrun_path (Array.of_list args) env
+      Unix.create_process_env !Cfg.ocaml_cmd (Array.of_list args) env
         top_stdin top_stdout top_stderr
     with Unix.Unix_error _ ->
       Tools.recover_error
         "<b>Error</b>\n\n\
          Could not run the ocaml toplevel, please check your installation:\n\
-         <b>%s %s</b>"
-        !Cfg.ocamlrun_path !Cfg.ocaml_path
+         <b>%s</b>"
+        (String.concat " " args)
   in
   List.iter Unix.close [top_stdin; top_stdout; top_stderr];
   Tools.debug "Ocaml process %d started: %s" ocaml_pid
-    (String.concat " " (!Cfg.ocaml_path::!Cfg.ocaml_opts));
+    (String.concat " " (!Cfg.ocaml_cmd :: !Cfg.ocaml_opts));
   (* Build the top structure *)
   let t = {
     pid = ocaml_pid;

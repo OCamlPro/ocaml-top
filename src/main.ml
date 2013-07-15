@@ -215,16 +215,21 @@ let init ?name ?contents main_window =
   Tools.debug "Init done, showing main window"
 
 let args =
+  let set_ocaml_cmd s =
+    Cfg.ocaml_opts := [];
+    Cfg.ocaml_cmd := s
+  in
   Arg.align [
-    "-ocaml", Arg.Set_string Cfg.ocaml_path,
-    "PATH Set the ocaml toplevel executable";
-    "-ocamlrun", Arg.Set_string Cfg.ocamlrun_path,
-    "PATH Set the ocaml bytecode interpreter";
+    "-ocaml", Arg.String set_ocaml_cmd,
+    "COMMAND Set the ocaml toplevel executable. Warning: the default is \n\
+    \        `-ocaml ocamlrun --- ocaml`, which is required on Windows for\n\
+    \        proper process handling (don't run the ocaml bytecode directly).";
     "-font", Arg.Set_string Cfg.font,
     "FONT Choose the font to use, as for Gtk settings. It must be monospace";
     "-datadir", Arg.Set_string Cfg.datadir,
     "PATH Directory where to find ocaml-top resources";
-    "--",
+    (* "--" is eaten by gtk, that's why we need "---" *)
+    "---",
     Arg.Rest (fun s -> Cfg.ocaml_opts := !Cfg.ocaml_opts @ [s]),
     " Remaining arguments are passed to the ocaml toplevel"
   ]
