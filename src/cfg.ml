@@ -12,6 +12,30 @@
 (*                                                                        *)
 (**************************************************************************)
 
+type os = Linux | OSX | Windows | Other
+
+let os = match Sys.os_type with
+  | "Win32" | "Cygwin" -> Windows
+  | "Unix" ->
+      (try
+         let in_channel = Unix.open_process_in "uname -s" in
+         let os =
+           try
+             match input_line in_channel with
+             | "Linux" -> Linux
+             | "Darwin" -> OSX
+             | _ -> Other
+           with End_of_file -> Other
+         in
+         ignore (Unix.close_process_in in_channel);
+         os
+       with Unix.Unix_error _ -> Other)
+  | _ -> Other
+
+let is_unix = match os with
+  | Linux | OSX | Other -> true
+  | Windows -> false
+
 let datadir =
   let (/) = Filename.concat in
   let program_dir =
@@ -20,7 +44,7 @@ let datadir =
     else dir
   in
   let default =
-    if Sys.os_type = "Unix" && Filename.basename program_dir = "bin" then
+    if is_unix && Filename.basename program_dir = "bin" then
       Filename.dirname program_dir / "share" / "ocaml-top"
     else
       program_dir / "data"
@@ -33,13 +57,12 @@ let datadir =
 
 let font =
   (* Warning, wrong font selection on Windows makes empty lines disappear ! *)
-  ref (match Sys.os_type with
-      | "Unix" -> "DejaVu Sans Mono 10"
-      | _ -> "Lucida Console 10")
+  ref (match os with
+      | Linux | Other -> "DejaVu Sans Mono 10"
+      | OSX -> "Monaco 12"
+      | Windows -> "Lucida Console 10")
 
-let char_width = ref 8
-
-let ocamlrun_path = ref "ocamlrun"
+let char_width = ref 8 (* Computed once the text view is initialized *)
 
 let ocaml_path = ref "ocaml"
 
