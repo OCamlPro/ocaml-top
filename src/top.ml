@@ -37,6 +37,7 @@ type t = {
   mutable status: status;
   mutable receive_hook: (response -> unit) option;
   mutable exit_hook: unit -> unit;
+  mutable skip_space: bool; (* to remove prompt-conts *)
 }
 
 let set_status t st = t.status <- st; t.status_change_hook t
@@ -115,25 +116,32 @@ let watchdog_thread receive_from_main_thread t =
   Event.sync (Event.send t.response_channel Exited)
   (* ; Tools.debug "Watchdog exits: death of ocaml has been signalled" *)
 
+let leading_spaces len nth =
+  let rec count i = if nth i <> ' ' then i else count (i+1) in
+  try count 0 with Invalid_argument _ -> len
 
 let await_full_response cont =
   let buf = Buffer.create 857 in
-  let buffer_rm_suffix buf suf =
+  let buffer_cleanup buf =
+    let suf = "# " in
     let len = Buffer.length buf and suf_len = String.length suf in
+    let spaces = leading_spaces len (Buffer.nth buf) in
     if len >= suf_len && Buffer.sub buf (len - suf_len) suf_len = suf
-    then Some (Buffer.sub buf 0 (len - suf_len))
+    then Some (Buffer.sub buf spaces (len - suf_len - spaces))
     else None
   in
   function
   | Message s ->
       Buffer.add_string buf s;
       (* fragile way to detect end of answer *)
-      (match buffer_rm_suffix buf "# " with
+      (match buffer_cleanup buf with
       | Some s -> s |> cont
       | None -> ())
   | User _ -> ()
   | Exited ->
-      Buffer.contents buf |> cont
+      (match buffer_cleanup buf with
+       | Some s -> s |> cont
+       | None -> ())
 
 let start schedule response_handler status_hook =
   let top_stdin,query_fdescr = Unix.pipe() in
@@ -152,8 +160,7 @@ let start schedule response_handler status_hook =
     (* Run ocamlrun rather than ocaml directly, otherwise another process is
        spawned and, on windows, that messes up our process handling *)
     let args = !Cfg.ocaml_cmd :: !Cfg.ocaml_opts
-               @ [ "-nopromptcont";
-                   "-init"; Filename.concat !Cfg.datadir "toplevel_init.ml" ]
+               @ [ "-init"; Filename.concat !Cfg.datadir "toplevel_init.ml" ]
     in
     Tools.debug "Running %S..." (String.concat " " args);
     try
@@ -178,6 +185,7 @@ let start schedule response_handler status_hook =
     status = Starting;
     receive_hook = None;
     exit_hook = (fun () -> ());
+    skip_space = false;
   } in
   let event_receive = receive_event t response_handler in
   let receive_from_main_thread () =
@@ -189,7 +197,14 @@ let start schedule response_handler status_hook =
     Thread.create
       (reader_thread response_fdescr
          receive_from_main_thread
-         (fun resp -> Message resp)) t
+         (fun resp ->
+            if t.skip_space then
+              let len = String.length resp in
+              let spaces = leading_spaces len (String.get resp) in
+              if spaces < len then t.skip_space <- false;
+              Message (String.sub resp spaces (len - spaces))
+            else Message resp))
+      t
   in
   let _error_reader_thread =
     Thread.create
@@ -231,6 +246,7 @@ let query t q cont =
           t.receive_hook <- None;
           set_status t Ready;
           cont response);
+    t.skip_space <- true;
     output_string t.query_channel q;
     output_string t.query_channel ";;\n";
     flush t;
