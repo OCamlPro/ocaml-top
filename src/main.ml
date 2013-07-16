@@ -141,12 +141,12 @@ let init ?name ?contents main_window =
   (* Initialize the source buffer and actions *)
   let buf_ref = ref (OBuf.create ?name ?contents ()) in
   let view_ref = ref (init_code_view main_window !buf_ref) in
-  Completion.setup !buf_ref !view_ref Gui.status_msg;
+  Completion.setup !buf_ref !view_ref Gui.index_msg;
   let get_buf k () = !buf_ref |> k in
   let set_buf buf =
     buf_ref := buf;
     view_ref := init_code_view main_window buf
-    ; Completion.setup buf !view_ref Gui.status_msg
+    ; Completion.setup buf !view_ref Gui.index_msg
   in
   let nil () = () in
   Gui.Controls.bind `NEW     @@ get_buf @@ BufActions.new_empty @@ set_buf;
@@ -196,14 +196,14 @@ let init ?name ?contents main_window =
         Gui.Controls.enable `EXECUTE_ALL;
         Gui.Controls.enable `RESTART;
         Gui.Controls.disable `STOP;
-        Gui.status_msg "Ready.";
+        Gui.top_msg "Ready.";
         show_spinner false
     | Top.Busy _ ->
         Gui.Controls.disable `EXECUTE;
         Gui.Controls.disable `EXECUTE_ALL;
         Gui.Controls.enable `RESTART;
         Gui.Controls.enable `STOP;
-        Gui.status_msg "Working...";
+        Gui.top_msg "Working...";
         show_spinner true
   in
   status_change_hook Top.Starting;
@@ -256,7 +256,7 @@ let _ =
     "ok"
   ;
   let _reloc_gtk_conf_on_windows =
-    if Sys.os_type <> "Unix" then
+    if Cfg.os = Cfg.Windows then
       let gtkrc = Filename.concat !Cfg.datadir "gtkrc" in
       (try Glib.setenv "GTK_PATH" !Cfg.datadir true with Not_found -> ());
       if Sys.file_exists gtkrc then GtkMain.Rc.parse gtkrc

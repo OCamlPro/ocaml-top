@@ -113,13 +113,18 @@ let main_view =
 let toplevel_view =
   GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`ALWAYS ()
 
-let status_bar, status_msg =
+let status_bar, top_msg, index_msg =
   let bar = GMisc.statusbar () in
-  let ctx = bar#new_context ~name:"general" in
+  let ctx_top = bar#new_context ~name:"top" in
+  let ctx_index = bar#new_context ~name:"index" in
   bar,
-  fun msg ->
-    ctx#pop ();
-    ignore @@ ctx#push msg
+  (fun msg ->
+     ctx_top#pop ();
+     if msg <> "" then ignore @@ ctx_top#push msg),
+  (fun msg ->
+     ctx_index#pop ();
+     if msg <> "" then ignore @@ ctx_index#push msg)
+
 
 type shortcut_mods = [ `CONTROL | `SHIFT | `META | `SUPER | `HYPER ]
 let shortcuts = [
