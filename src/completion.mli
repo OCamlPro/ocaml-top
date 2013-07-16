@@ -12,4 +12,4 @@
 (*                                                                        *)
 (**************************************************************************)
 
-val setup: OcamlBuffer.t -> GSourceView2.source_view -> unit
+val setup: OcamlBuffer.t -> GSourceView2.source_view -> (string -> unit) -> unit

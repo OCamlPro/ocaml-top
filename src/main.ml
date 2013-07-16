@@ -141,12 +141,12 @@ let init ?name ?contents main_window =
   (* Initialize the source buffer and actions *)
   let buf_ref = ref (OBuf.create ?name ?contents ()) in
   let view_ref = ref (init_code_view main_window !buf_ref) in
-  Completion.setup !buf_ref !view_ref;
+  Completion.setup !buf_ref !view_ref Gui.status_msg;
   let get_buf k () = !buf_ref |> k in
   let set_buf buf =
     buf_ref := buf;
     view_ref := init_code_view main_window buf
-    ; Completion.setup buf !view_ref
+    ; Completion.setup buf !view_ref Gui.status_msg
   in
   let nil () = () in
   Gui.Controls.bind `NEW     @@ get_buf @@ BufActions.new_empty @@ set_buf;

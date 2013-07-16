@@ -12,93 +12,93 @@
 (*                                                                        *)
 (**************************************************************************)
 
+open Tools.Ops
 module OBuf = OcamlBuffer
 
+let is_prefix_char =
+  let chars = List.map int_of_char ['.';'_';'\''] in
+  fun gchar ->
+    Glib.Unichar.isalnum gchar ||
+    List.mem gchar chars
+
+let completion_start_iter (iter:GText.iter) : GText.iter =
+  let limit = iter#set_line_offset 0 in
+  let iter =
+    iter#backward_find_char ~limit (fun c -> not (is_prefix_char c))
+  in
+  if iter#equal limit then iter else iter#forward_char
+
+let get_completions index buf
+    (context: GSourceView2.source_completion_context) =
+  let candidates =
+    try
+      let stop = context#iter in
+      let start = completion_start_iter stop in
+      let word = buf.OBuf.gbuffer#get_text ~start ~stop () in
+      Tools.debug "Completing on %S" word;
+      LibIndex.complete index word
+    with e ->
+        Tools.debug "Exception in completion: %s"
+          (Printexc.to_string e);
+        []
+  in
+  List.map (fun info ->
+      let text = LibIndex.Print.path info in
+      let label = Printf.sprintf "%s %s"
+          (LibIndex.Print.name info) (LibIndex.Print.ty info)
+      in
+      (GSourceView2.source_completion_item ~label ~text
+         ?icon:None
+         ~info:(LibIndex.Print.ty info)
+         ()
+       :> GSourceView2.source_completion_proposal)
+    ) candidates
+
+
 (* WORK IN PROGRESS: this works but can trigger SEGFAULTS ! *)
-let setup buf (view: GSourceView2.source_view) =
-  let lib_index =
-    (* temporary *)
-    let rec subdirs acc path =
-      Array.fold_left
-        (fun acc p ->
-          let path = Filename.concat path p in
-          if Sys.is_directory path then subdirs acc path else acc)
-        (path::acc)
-        (Sys.readdir path)
+let setup buf (view: GSourceView2.source_view) message =
+  let index =
+    let dirs = [!Cfg.datadir] in
+    let dirs =
+      try
+        let ic = Unix.open_process_in "ocamlc -where" in
+        let dirs = (try input_line ic :: dirs with End_of_file -> dirs) in
+        ignore (Unix.close_process_in ic);
+        dirs
+      with Unix.Unix_error _ -> dirs
     in
-    let ocaml_dirs =
-      let ic = Unix.open_process_in "ocamlc -where" in
-      let dir = input_line ic in
-      ignore (Unix.close_process_in ic);
-      subdirs [] dir
-    in
-    LibIndex.load ocaml_dirs
+    LibIndex.load (LibIndex.unique_subdirs dirs)
   in
   let ocaml_completion_provider =
     (* ref needed for bootstrap (!) *)
     let provider_ref = ref None in
-    let is_prefix_char =
-      let chars = List.map int_of_char ['.';'_';'\''] in
-      fun gchar ->
-        Glib.Unichar.isalnum gchar ||
-        List.mem gchar chars
-    in
-    let completion_start_iter (iter:GText.iter) : GText.iter =
-      let limit = iter#set_line_offset 0 in
-      let iter =
-        iter#backward_find_char ~limit (fun c -> not (is_prefix_char c))
-      in
-      if iter#equal limit then iter else iter#forward_char
-    in
     let custom_provider : GSourceView2.custom_completion_provider =
       object (self)
-        method name = Tools.debug "name";
-          "Available library values"
-        method icon =  Tools.debug "icon"; None
-        method populate : GSourceView2.source_completion_context -> unit =
-          fun context ->
-            Tools.debug "populate";
-            let candidates =
-              let stop = context#iter in
-              let start = completion_start_iter stop in
-              let word = buf.OBuf.gbuffer#get_text ~start ~stop () in
-              Tools.debug "Completing on %S" word;
-              LibIndex.complete lib_index word
-            in
-            let propals =
-              List.map (fun info ->
-                  (GSourceView2.source_completion_item
-                     ~label:(LibIndex.Print.name info)
-                     ~text:(LibIndex.Print.path info)
-                     ?icon:None
-                     ~info:(LibIndex.Print.ty info)
-                     ()
-                   :> GSourceView2.source_completion_proposal)
-                ) candidates
-            in
-            context#add_proposals
-              (match !provider_ref with Some p -> p | None -> assert false)
-              propals
-              true;
+        method name = "Available library values"
+        method icon =  None
+        method populate context =
+          let provider =
+            match !provider_ref with Some p -> p | None -> assert false
+          in
+          ignore @@ GMain.Idle.add @@ fun () ->
+            let candidates = get_completions index buf context in
+            context#add_proposals provider candidates true;
+            false
         method matched context = Tools.debug "matched";
           is_prefix_char context#iter#backward_char#char
-        method activation = [`USER_REQUESTED] (* `INTERACTIVE *)
+        method activation = [`USER_REQUESTED] (* ;`INTERACTIVE] *)
         method info_widget _propal = None
         method update_info _propal _info = ()
-        method start_iter context _propal iter =
-          let start =
-            completion_start_iter (buf.OBuf.gbuffer#get_iter `INSERT)
-          in
-          (* ouch, answers by side effect on iter... *)
-          iter#nocopy#assign start#nocopy;
-          true
+        method start_iter context _propal iter = false
         method activate_proposal propal iter =
           let pfxlen = iter#offset - (completion_start_iter iter)#offset in
           let text = propal#text in
           let text = String.sub text pfxlen (String.length text - pfxlen) in
+          buf.OBuf.gbuffer#begin_user_action ();
           buf.OBuf.gbuffer#insert
             ~iter:(buf.OBuf.gbuffer#get_iter `INSERT)
             text;
+          buf.OBuf.gbuffer#end_user_action ();
           true
         method interactive_delay = 2
         method priority = 2
