@@ -226,6 +226,8 @@ let args =
     \        proper process handling (don't run the ocaml bytecode directly).";
     "-font", Arg.Set_string Cfg.font,
     "FONT Choose the font to use, as for Gtk settings. It must be monospace";
+    "-light", Arg.Unit (fun () -> Cfg.theme := "light"),
+    " Set a light theme instead of the default dark one";
     "-datadir", Arg.Set_string Cfg.datadir,
     "PATH Directory where to find ocaml-top resources";
     (* "--" is eaten by gtk, that's why we need "---" *)

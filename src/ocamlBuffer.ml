@@ -27,7 +27,7 @@ module GSourceView_params = struct
     let style_mgr = GSourceView2.source_style_scheme_manager ~default:true in
     if style_mgr#search_path <> [!Cfg.datadir] then
       style_mgr#set_search_path [!Cfg.datadir];
-    let sty = style_mgr#style_scheme "cobalt" in
+    let sty = style_mgr#style_scheme !Cfg.theme in
     if sty = None then Tools.debug "WARNING: style def not found";
     sty
 end
@@ -75,12 +75,12 @@ module Tags = struct
 
   let stdout =
     let t = GText.tag ~name:"stdout" () in
-    t#set_property (`FOREGROUND "#dd0");
+    t#set_property (`FOREGROUND "#aa0");
     t
 
   let ocamltop =
     let t = GText.tag ~name:"ocamltop" () in
-    t#set_property (`FOREGROUND "white");
+    t#set_property (`FOREGROUND "#48c");
     t
 
   let ocamltop_err =

@@ -34,10 +34,10 @@
 
   <styles>
     <style id="comment" _name="Comment" map-to="def:comment"/>
-    <style id="ocamldoc" _name="Ocamldoc Comments" map-to="def:note"/>
+    <style id="ocamldoc" _name="Ocamldoc Comments" map-to="def:doc-comment"/>
     <style id="base-n-integer" _name="Base-N Integer" map-to="def:base-n-integer"/>
-    <style id="floating-point" _name="Floating Point number" map-to="def:floating-point"/>
-    <style id="decimal" _name="Decimal number" map-to="def:decimal"/>
+    <style id="floating-point" _name="Floating Point number" />
+    <style id="decimal" _name="Decimal number" />
     <style id="string" _name="String" map-to="def:string"/>
     <style id="keyword" _name="Keyword" map-to="def:keyword"/>
     <style id="meta-keyword" _name="Type, module or object keyword" map-to="def:keyword"/>
@@ -114,7 +114,7 @@
 	  <match>[~?]\%{low-ident}</match>
 	</context>
 	<context id="poly-variant" style-ref="poly-variant">
-	  <match>`\%{cap-ident}</match>
+	  <match>`\%{cap-ident}|`\%{low-ident}</match>
 	</context>
 	<context id="modpath" style-ref="module">
 	  <!-- include final '.'?  At the moment, no.  -->
