@@ -115,15 +115,18 @@ let setup buf (view: GSourceView2.source_view) message =
   compl#set_show_headers false;
   ignore (compl#add_provider ocaml_completion_provider);
   (* let compl_visible = ref false in *)
-  ignore (view#event#connect#key_press ~callback:(fun ev ->
-    if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then
-      (Tools.debug "Complete !";
-      (* trigger compl; *)
-       ignore (compl#show [ocaml_completion_provider]
-                 (compl#create_context (buf.OBuf.gbuffer#get_iter `INSERT)));
-       true)
-    else false
-    ));
-  Tools.debug "Completion activated";
+  (* Enable only for debug at the moment *)
+  if Tools.debug_enabled then (
+    ignore (view#event#connect#key_press ~callback:(fun ev ->
+        if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then
+          (Tools.debug "Complete !";
+           (* trigger compl; *)
+           ignore (compl#show [ocaml_completion_provider]
+                     (compl#create_context (buf.OBuf.gbuffer#get_iter `INSERT)));
+           true)
+        else false
+      ));
+    Tools.debug "Completion activated"
+  );
   ()
 
