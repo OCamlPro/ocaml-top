@@ -49,5 +49,8 @@ val open_text_view : GSourceView2.source_buffer -> GSourceView2.source_view
 
 val open_toplevel_view : GSourceView2.source_buffer -> GSourceView2.source_view
 
+(* Displays a message in the status bar *)
+val status_msg : string -> unit
+
 (* call _after_ opening the views *)
 val set_font : string -> unit

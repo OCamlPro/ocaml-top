@@ -113,6 +113,14 @@ let main_view =
 let toplevel_view =
   GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`ALWAYS ()
 
+let status_bar, status_msg =
+  let bar = GMisc.statusbar () in
+  let ctx = bar#new_context ~name:"general" in
+  bar,
+  fun msg ->
+    ctx#pop ();
+    ignore @@ ctx#push msg
+
 type shortcut_mods = [ `CONTROL | `SHIFT | `META | `SUPER | `HYPER ]
 let shortcuts = [
   ([`CONTROL], GdkKeysyms._n),      `NEW;
@@ -183,7 +191,8 @@ let main_window () =
           main_view;
           toplevel_view;
         ];
-      ];
+      ]
+    |> pack [ status_bar |> as_widget ];
     ]
   in
   ignore @@ win#event#connect#delete

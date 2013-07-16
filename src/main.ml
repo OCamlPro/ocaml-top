@@ -196,12 +196,14 @@ let init ?name ?contents main_window =
         Gui.Controls.enable `EXECUTE_ALL;
         Gui.Controls.enable `RESTART;
         Gui.Controls.disable `STOP;
+        Gui.status_msg "Ready.";
         show_spinner false
     | Top.Busy _ ->
         Gui.Controls.disable `EXECUTE;
         Gui.Controls.disable `EXECUTE_ALL;
         Gui.Controls.enable `RESTART;
         Gui.Controls.enable `STOP;
+        Gui.status_msg "Working...";
         show_spinner true
   in
   status_change_hook Top.Starting;
