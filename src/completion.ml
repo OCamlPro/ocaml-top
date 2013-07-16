@@ -28,6 +28,10 @@ let completion_start_iter (iter:GText.iter) : GText.iter =
   in
   if iter#equal limit then iter else iter#forward_char
 
+let completion_end_iter (iter:GText.iter) : GText.iter =
+  let limit = iter#forward_to_line_end in
+  iter#forward_find_char ~limit (fun c -> not (is_prefix_char c))
+
 let get_completions index buf
     (context: GSourceView2.source_completion_context) =
   let candidates =
@@ -54,21 +58,43 @@ let get_completions index buf
        :> GSourceView2.source_completion_proposal)
     ) candidates
 
-
-(* WORK IN PROGRESS: this works but can trigger SEGFAULTS ! *)
-let setup buf (view: GSourceView2.source_view) message =
-  let index =
-    let dirs = [!Cfg.datadir] in
-    let dirs =
-      try
-        let ic = Unix.open_process_in "ocamlc -where" in
-        let dirs = (try input_line ic :: dirs with End_of_file -> dirs) in
-        ignore (Unix.close_process_in ic);
-        dirs
-      with Unix.Unix_error _ -> dirs
+let setup_show_type index buf message =
+  let gbuf = buf.OBuf.gbuffer in
+  let show_type pos =
+    let iter = gbuf#get_iter (`OFFSET pos) in
+    let start = completion_start_iter iter in
+    let stop = completion_end_iter start in
+    let msg =
+      if stop#offset > start#offset + 2 then
+        let id = gbuf#get_text ~start ~stop () in
+        try
+          let i = LibIndex.get index id in
+          Tools.debug "Found definition for %s" id;
+          LibIndex.Format.(
+            Format.fprintf Format.str_formatter "%a %a%s %a"
+              (fun fmt -> kind fmt) i
+              (fun fmt -> path fmt) i
+              LibIndex.(match i.kind with
+                  | Type -> " ="
+                  | Value | Exception | Field _ | Variant _ | Method _ -> ":"
+                  | _ -> "")
+              (fun fmt -> ty fmt) i
+          );
+          Format.flush_str_formatter ()
+        with Not_found -> ""
+      else ""
     in
-    LibIndex.load (LibIndex.unique_subdirs dirs)
+    message msg
   in
+  let callback =
+    let idle_id = ref None in
+    fun pos ->
+      (match !idle_id with Some id -> GMain.Idle.remove id | None -> ());
+      idle_id := Some (GMain.Idle.add @@ fun () -> show_type pos; false)
+  in
+  ignore @@ gbuf#connect#notify_cursor_position ~callback
+
+let setup_completion index buf (view: GSourceView2.source_view) =
   let ocaml_completion_provider =
     (* ref needed for bootstrap (!) *)
     let provider_ref = ref None in
@@ -115,18 +141,36 @@ let setup buf (view: GSourceView2.source_view) message =
   compl#set_show_headers false;
   ignore (compl#add_provider ocaml_completion_provider);
   (* let compl_visible = ref false in *)
-  (* Enable only for debug at the moment *)
+  ignore (view#event#connect#key_press ~callback:(fun ev ->
+      if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then
+        (Tools.debug "Complete !";
+         (* trigger compl; *)
+         ignore (compl#show [ocaml_completion_provider]
+                   (compl#create_context (buf.OBuf.gbuffer#get_iter `INSERT)));
+         true)
+      else false
+    ));
+  Tools.debug "Completion activated"
+
+(* WORK IN PROGRESS: this works but can trigger SEGFAULTS ! *)
+let setup buf (view: GSourceView2.source_view) message =
+  let index =
+    let dirs = [!Cfg.datadir] in
+    let dirs =
+      try
+        let ic = Unix.open_process_in "ocamlc -where" in
+        let dirs = (try input_line ic :: dirs with End_of_file -> dirs) in
+        ignore (Unix.close_process_in ic);
+        dirs
+      with Unix.Unix_error _ -> dirs
+    in
+    LibIndex.load (LibIndex.unique_subdirs dirs)
+  in
   if Tools.debug_enabled then (
-    ignore (view#event#connect#key_press ~callback:(fun ev ->
-        if GdkEvent.Key.keyval ev = GdkKeysyms._Tab then
-          (Tools.debug "Complete !";
-           (* trigger compl; *)
-           ignore (compl#show [ocaml_completion_provider]
-                     (compl#create_context (buf.OBuf.gbuffer#get_iter `INSERT)));
-           true)
-        else false
-      ));
-    Tools.debug "Completion activated"
+    (* Enable only for debug at the moment *)
+    setup_completion index buf view
   );
+  setup_show_type index buf message;
+  Tools.debug "Type display activated";
   ()
 
