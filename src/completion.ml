@@ -84,6 +84,17 @@ let setup_show_type index buf message =
         with Not_found -> ""
       else ""
     in
+    let msg = (* Add some nicer-looking utf8 chars *)
+      let len = String.length msg in
+      let buf = Buffer.create (len + len / 2) in
+      let rec replace i =
+        if i >= len then Buffer.contents buf
+        else if msg.[i] = '-' && msg.[i+1] = '>'
+        then (Buffer.add_string buf "\xe2\x86\x92"; replace (i+2))
+        else (Buffer.add_char buf msg.[i]; replace (i+1))
+      in
+      replace 0
+    in
     message msg
   in
   let callback =
