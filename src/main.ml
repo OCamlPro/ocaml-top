@@ -75,20 +75,6 @@ module BufActions = struct
   let new_empty k =
     confirm_discard @@ fun () -> OBuf.create () |> k
 
-  let preferences buf =
-    Gui.Dialogs.preferences ~on_font_change:(fun () ->
-      OBuf.trigger_reindent buf OBuf.reindent_full)
-      ()
-
-  let zoom value buf =
-    let font =
-      new GPango.font_description (GPango.font_description !Cfg.font)
-    in
-    let size = max 6 @@ min 24 @@ font#size / Pango.scale +  value in
-    font#modify ~size:(size * Pango.scale) ();
-    Gui.set_font font#to_string;
-    OBuf.trigger_reindent buf OBuf.reindent_full
-
   let quit main_window buf =
     if OBuf.is_modified buf then
       Gui.Dialogs.quit (OBuf.filename buf)
@@ -124,6 +110,30 @@ module TopActions = struct
       ~stop:top.TopUi.buffer#end_iter;
 end
 
+module UIActions = struct
+  let select_font top_view src_view _top buf =
+    Gui.Dialogs.choose_font src_view top_view ~on_font_change:(fun () ->
+      OBuf.trigger_reindent buf OBuf.reindent_full)
+      ()
+
+  let zoom value top_view src_view top buf =
+    let font =
+      new GPango.font_description (GPango.font_description !Cfg.font)
+    in
+    let size = max 6 @@ min 24 @@ font#size / Pango.scale +  value in
+    font#modify ~size:(size * Pango.scale) ();
+    Gui.set_font src_view top_view font#to_string;
+    OBuf.trigger_reindent buf OBuf.reindent_full
+
+  let switch_theme _top_view _src_view top buf =
+    Cfg.theme := if !Cfg.theme = "dark" then "light" else "dark";
+    buf.OBuf.gbuffer#set_style_scheme (OBuf.GSourceView_params.style ());
+    top.TopUi.buffer#set_style_scheme (OBuf.GSourceView_params.style ())
+
+  let fullscreen window _top_view _src_view _top _buf =
+    Gui.switch_fullscreen window
+end
+
 let init_code_view main_window buf =
   OBuf.setup_indent buf;
   let gbuf = buf.OBuf.gbuffer in
@@ -145,8 +155,8 @@ let init ?name ?contents main_window =
   let get_buf k () = !buf_ref |> k in
   let set_buf buf =
     buf_ref := buf;
-    view_ref := init_code_view main_window buf
-    ; Completion.setup buf !view_ref Gui.index_msg
+    view_ref := init_code_view main_window buf;
+    Completion.setup buf !view_ref Gui.index_msg
   in
   let nil () = () in
   Gui.Controls.bind `NEW     @@ get_buf @@ BufActions.new_empty @@ set_buf;
@@ -155,8 +165,6 @@ let init ?name ?contents main_window =
   @@ nil;
   Gui.Controls.bind `SAVE    @@ get_buf @@ BufActions.save_to_file ~ask:false
   @@ nil;
-  Gui.Controls.bind `ZOOM_IN @@ get_buf @@ BufActions.zoom (+1);
-  Gui.Controls.bind `ZOOM_OUT @@ get_buf @@ BufActions.zoom (-1);
   Gui.Controls.bind `QUIT    @@ get_buf @@ BufActions.quit main_window;
   (* Initialize the top-level buffer and actions *)
   let toplevel_buffer = TopUi.create_buffer () in
@@ -169,7 +177,14 @@ let init ?name ?contents main_window =
   (* Create the toplevel view *)
   let top_buf = toplevel_buffer.TopUi.buffer in
   let top_view = Gui.open_toplevel_view top_buf in
-  Gui.set_font !Cfg.font;
+  (* UI actions *)
+  let get_view f () = get_top (f top_view !view_ref) () in
+  Gui.Controls.bind `ZOOM_IN @@ get_view @@ UIActions.zoom (+1);
+  Gui.Controls.bind `ZOOM_OUT @@ get_view @@ UIActions.zoom (-1);
+  Gui.Controls.bind `SELECT_FONT @@ get_view @@ UIActions.select_font;
+  Gui.Controls.bind `SELECT_COLOR @@ get_view @@ UIActions.switch_theme;
+  Gui.Controls.bind `FULLSCREEN @@ get_view @@ UIActions.fullscreen main_window;
+  Gui.set_font !view_ref top_view !Cfg.font;
   ignore @@ top_buf#connect#after#changed ~callback:(fun () ->
       ignore @@ GMain.Idle.add @@ fun () ->
         ignore @@ top_view#scroll_to_iter

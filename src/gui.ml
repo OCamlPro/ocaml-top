@@ -19,7 +19,8 @@ let _ = GtkMain.Main.init()
 module Controls = struct
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
            | `EXECUTE | `EXECUTE_ALL | `STOP | `RESTART | `CLEAR
-           | `PREFERENCES | `ZOOM_IN | `ZOOM_OUT | `QUIT ]
+           | `SELECT_FONT | `SELECT_COLOR | `ZOOM_IN | `ZOOM_OUT | `FULLSCREEN
+           | `QUIT ]
 
   let stock (*: t -> GtkStock.id*) = function
     | `RESTART -> `REFRESH
@@ -37,9 +38,11 @@ module Controls = struct
       | `STOP -> "stop"
       | `RESTART -> "restart"
       | `CLEAR -> "clear"
-      | `PREFERENCES -> "setup"
+      | `SELECT_FONT -> "setup"
+      | `SELECT_COLOR -> "setup"
       | `ZOOM_IN -> "zoom-in"
       | `ZOOM_OUT -> "zoom-out"
+      | `FULLSCREEN -> "setup"
       | `QUIT -> "quit"
     in
     let file =
@@ -64,9 +67,11 @@ module Controls = struct
     | `STOP -> "Stop","Stop ongoing program execution [Esc]"
     | `RESTART -> "Restart","Terminate the current toplevel and start a new one"
     | `CLEAR -> "Clear","Clear the toplevel window history"
-    | `PREFERENCES -> "Setup","Configuration options"
+    | `SELECT_FONT -> "Font...","Change the display font"
+    | `SELECT_COLOR -> "Color theme","Switch color theme"
     | `ZOOM_IN -> "Zoom in","Make the font bigger [Ctrl +]"
     | `ZOOM_OUT -> "Zoom out","Make the font smaller [Ctrl -]"
+    | `FULLSCREEN -> "Fullscreen","Switch fullscreen mode"
     | `QUIT -> "Quit","Quit ocaml-top [Ctrl q]"
 
   (* We could use lablgtk's action groups as well. But better map from an open
@@ -114,7 +119,7 @@ let toplevel_view =
   GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`ALWAYS ()
 
 let status_bar, top_msg, index_msg =
-  let bar = GMisc.statusbar () in
+  let bar = GMisc.statusbar ~has_resize_grip:false () in
   let ctx_top = bar#new_context ~name:"top" in
   let ctx_index = bar#new_context ~name:"index" in
   bar,
@@ -138,7 +143,11 @@ let shortcuts = [
   ([`CONTROL], GdkKeysyms._KP_Add), `ZOOM_IN;
   ([`CONTROL], GdkKeysyms._minus),  `ZOOM_OUT;
   ([`CONTROL], GdkKeysyms._KP_Subtract), `ZOOM_OUT;
+  ([],         GdkKeysyms._F4),     `SELECT_FONT;
+  ([],         GdkKeysyms._F5),     `SELECT_COLOR;
+  ([],         GdkKeysyms._F11),    `FULLSCREEN;
   ([`CONTROL], GdkKeysyms._q),      `QUIT;
+  ([`META],    GdkKeysyms._F4),     `QUIT;
 ]
 
 let add objs container =
@@ -173,7 +182,7 @@ let main_window () =
     |> add [
       GPack.vbox ()
       |> pack [
-        GButton.toolbar ~style:`BOTH ()
+        GButton.toolbar ~style:`ICONS ()
         |> add [
           mkbutton `NEW;
           mkbutton `OPEN;
@@ -232,9 +241,9 @@ let open_text_view buffer =
       ~indent_width:2
       ~accepts_tab:false
       ~wrap_mode:`CHAR
-      ~show_right_margin:true
+      ~show_right_margin:false
       ~show_line_marks:true
-      ~show_line_numbers:true
+      ~show_line_numbers:false
       ()
   in
   List.iter main_view#remove main_view#children;
@@ -261,7 +270,7 @@ let open_text_view buffer =
   in
   view#misc#modify_font_by_name !Cfg.font;
   main_view#add (view :> GObj.widget);
-  view#misc#set_size_request ~width:672 ();
+  view#misc#set_size_request ~width:(!Cfg.char_width * 83) ();
   view#misc#grab_focus ();
   view
 
@@ -286,20 +295,28 @@ let open_toplevel_view top_buf =
   view#misc#set_can_focus false;
   view
 
-let set_font str =
+let set_font
+    (src_view:GSourceView2.source_view)
+    (top_view:GSourceView2.source_view)
+    str
+  =
   let font = new GPango.font_description (GPango.font_description str) in
-  let set_view (view: GObj.widget) =
-    view#misc#modify_font font#fd;
-    Cfg.char_width :=
-      GPango.to_pixels
-        (view#misc#pango_context#get_metrics ())#approx_char_width
-  in
   Cfg.font := font#to_string;
-  List.iter set_view main_view#children;
-  List.iter set_view toplevel_view#children;
+  src_view#misc#modify_font font#fd;
+  top_view#misc#modify_font font#fd;
+  Cfg.char_width :=
+    GPango.to_pixels
+      (src_view#misc#pango_context#get_metrics ())#approx_char_width;
+  main_view#misc#set_size_request ~width:(!Cfg.char_width * 82 + 30) ();
   Tools.debug "Font set: %S (char width: %d)"
     font#to_string !Cfg.char_width
 
+let switch_fullscreen =
+  let full = ref false in
+  fun window ->
+    if !full then window#unfullscreen ()
+    else window#fullscreen ();
+    full := not !full
 
 module Dialogs = struct
 
@@ -384,14 +401,19 @@ module Dialogs = struct
         | `NO | `DELETE_EVENT -> dialog#destroy () |> no);
     dialog#show ()
 
-  let preferences ~on_font_change () =
+  let choose_font
+      (src_view:GSourceView2.source_view) (top_view:GSourceView2.source_view)
+      ~on_font_change
+      ()
+    =
     let dialog = GWindow.font_selection_dialog () in
+    dialog#selection#set_font_name !Cfg.font;
     ignore @@ dialog#connect#response ~callback:(function
       | `APPLY ->
-          set_font dialog#selection#font_name;
+          set_font src_view top_view dialog#selection#font_name;
           on_font_change ()
       | `OK ->
-          set_font dialog#selection#font_name;
+          set_font src_view top_view dialog#selection#font_name;
           dialog#destroy ();
           on_font_change ()
       | `CANCEL | `DELETE_EVENT -> dialog#destroy ());

@@ -19,7 +19,8 @@ end
 include Ops
 
 let debug_enabled =
-  try Sys.getenv "OCP_DEBUG" <> "0" with Not_found -> false
+  try match Sys.getenv "OCP_DEBUG" with "" | "0" -> false | _ -> true
+  with Not_found -> false
 
 let debug =
   if debug_enabled then

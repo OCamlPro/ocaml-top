@@ -14,9 +14,9 @@
 
 module Controls : sig
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
-           | `EXECUTE | `EXECUTE_ALL | `STOP | `CLEAR | `RESTART
-           | `PREFERENCES | `ZOOM_IN | `ZOOM_OUT | `QUIT ]
-
+           | `EXECUTE | `EXECUTE_ALL | `STOP | `RESTART | `CLEAR
+           | `SELECT_FONT | `SELECT_COLOR | `ZOOM_IN | `ZOOM_OUT | `FULLSCREEN
+           | `QUIT ]
   val bind: t -> (unit -> unit) -> unit
   (* val trigger: t -> unit *)
 
@@ -37,7 +37,10 @@ module Dialogs : sig
 
   val confirm : title:string -> string -> ?no:(unit -> unit) -> unit cps
 
-  val preferences : on_font_change:(unit -> unit) -> unit -> unit
+  val choose_font :
+    GSourceView2.source_view -> GSourceView2.source_view ->
+    on_font_change:(unit -> unit) -> unit
+    -> unit
 end
 
 val main_window : unit -> GWindow.window
@@ -54,4 +57,8 @@ val top_msg : string -> unit
 val index_msg : string -> unit
 
 (* call _after_ opening the views *)
-val set_font : string -> unit
+val set_font :
+  GSourceView2.source_view -> GSourceView2.source_view -> string
+  -> unit
+
+val switch_fullscreen : GWindow.window -> unit
