@@ -12,6 +12,8 @@
 (*                                                                        *)
 (**************************************************************************)
 
+let version = "1.0.1"
+
 type os = Linux | OSX | Windows | Other
 
 let os = match Sys.os_type with

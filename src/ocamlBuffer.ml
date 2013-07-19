@@ -55,7 +55,7 @@ let unmodify buf = buf.gbuffer#set_modified false
 
 let filename buf = buf.filename
 
-let filename_default ?(default="<unnamed.ml>") buf =
+let filename_default ?(default="New ml file") buf =
   match buf.filename with
   | Some f -> Filename.basename f
   | None -> default

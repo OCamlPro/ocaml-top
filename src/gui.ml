@@ -175,7 +175,7 @@ let main_window () =
   in
   let win =
     GWindow.window
-      ~title:"ocaml-top"
+      ~title:("ocaml-top "^Cfg.version)
       ~height:600 ~allow_shrink:true (* ~width:800 ~show:true *)
       ~icon:logo
       ()
@@ -228,7 +228,9 @@ let main_window () =
   win
 
 let set_window_title window fmt =
-  Printf.ksprintf window#set_title (fmt ^^ " - ocaml-top")
+  Printf.ksprintf
+    (fun s -> window#set_title (s ^ " - ocaml-top " ^ Cfg.version))
+    fmt
 
 let open_text_view buffer =
   Tools.debug "open text view";

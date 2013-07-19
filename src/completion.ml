@@ -65,20 +65,25 @@ let setup_show_type index buf message =
     let start = completion_start_iter iter in
     let stop = completion_end_iter start in
     let msg =
-      if stop#offset > start#offset + 2 then
+      if stop#offset > start#offset then
         let id = gbuf#get_text ~start ~stop () in
         try
           let i = LibIndex.get index id in
           Tools.debug "Found definition for %s" id;
+          let str_ty = LibIndex.Print.ty i in
+          let str_ty =
+            if str_ty = "" then str_ty else
+              LibIndex.(match i.kind with
+                  | Type -> " = " ^ str_ty
+                  | Exception | Variant _ -> " of " ^ str_ty
+                  | Value | Method _ -> ": " ^ str_ty
+                  | _ -> str_ty)
+          in
           LibIndex.Format.(
-            Format.fprintf Format.str_formatter "%a %a%s %a"
+            Format.fprintf Format.str_formatter "%a %a%s"
               (fun fmt -> kind fmt) i
               (fun fmt -> path fmt) i
-              LibIndex.(match i.kind with
-                  | Type -> " ="
-                  | Value | Exception | Field _ | Variant _ | Method _ -> ":"
-                  | _ -> "")
-              (fun fmt -> ty fmt) i
+              str_ty
           );
           Format.flush_str_formatter ()
         with Not_found -> ""
