@@ -1,3 +1,10 @@
+## 1.1.0
+* UI cleanup
+* New color themes (dark and light)
+* Added a few keyboard shortcuts (fullscreen, switch theme, select font)
+* Added automatic library type display in a status-line (using ocp-index)
+* A few fixes (OSX font, command-line arguments on Windows, 3.12 compatibility)
+
 ## 1.0.1
 * Fixed issues #24, #36, #37, #38, #39, mainly related to UI
 * Enhanced phrase boundary handling
