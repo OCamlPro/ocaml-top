@@ -169,7 +169,7 @@ let handle_response top response response_start_mark
   let next_msg_line s =
     String.length s = 0 ||
     match s.[0] with
-    | ' ' | ')' | '|' | ']' | '}' -> false
+    | ' ' | ')' | '|' | ']' | '}' | '"' -> false
     | _ -> true
   in
   let rec parse_response success iter = function

@@ -117,7 +117,10 @@ let watchdog_thread receive_from_main_thread t =
   (* ; Tools.debug "Watchdog exits: death of ocaml has been signalled" *)
 
 let leading_spaces len nth =
-  let rec count i = if nth i <> ' ' then i else count (i+1) in
+  let rec count i = match nth i with
+    | ' ' | '*' -> count (i+1)
+    | _ -> i
+  in
   try count 0 with Invalid_argument _ -> len
 
 let await_full_response cont =

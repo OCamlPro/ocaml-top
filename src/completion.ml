@@ -58,6 +58,20 @@ let get_completions index buf
        :> GSourceView2.source_completion_proposal)
     ) candidates
 
+let merge_lines str =
+  let len = String.length str in
+  let buf = Buffer.create len in
+  let rec aux i =
+    try
+      let j = String.index_from str i '\n' in
+      Buffer.add_substring buf str i (j - i);
+      let k = ref (j+1) in while !k < len && str.[!k] = ' ' do incr k done;
+      if !k < len then Buffer.add_char buf ' '; aux !k
+    with Not_found -> Buffer.add_substring buf str i (len - i)
+  in
+  aux 0;
+  Buffer.contents buf
+
 let setup_show_type index buf message =
   let gbuf = buf.OBuf.gbuffer in
   let show_type pos =
@@ -70,14 +84,14 @@ let setup_show_type index buf message =
         try
           let i = LibIndex.get index id in
           Tools.debug "Found definition for %s" id;
-          let str_ty = LibIndex.Print.ty i in
+          let str_ty = merge_lines (LibIndex.Print.ty i) in
           let str_ty =
             if str_ty = "" then str_ty else
               LibIndex.(match i.kind with
-                  | Type -> " = " ^ str_ty
+                  | Type | ModuleType | ClassType -> " = " ^ str_ty
                   | Exception | Variant _ -> " of " ^ str_ty
-                  | Value | Method _ -> ": " ^ str_ty
-                  | _ -> str_ty)
+                  | Value | Method _ | Field _ | Module | Class ->
+                      ": " ^ str_ty)
           in
           LibIndex.Format.(
             Format.fprintf Format.str_formatter "%a %a%s"
