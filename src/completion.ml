@@ -182,6 +182,12 @@ let setup_completion index buf (view: GSourceView2.source_view) =
     ));
   Tools.debug "Completion activated"
 
+(* workaround windows input_line bug *)
+let input_line ic =
+  let s = Pervasives.input_line ic in
+  let len = String.length s in
+  if len > 0 && s.[len - 1] = '\r' then String.sub s 0 (len-1) else s
+
 (* WORK IN PROGRESS: this works but can trigger SEGFAULTS ! *)
 let setup buf (view: GSourceView2.source_view) message =
   let index =
@@ -192,7 +198,7 @@ let setup buf (view: GSourceView2.source_view) message =
         let dirs = (try input_line ic :: dirs with End_of_file -> dirs) in
         ignore (Unix.close_process_in ic);
         dirs
-      with Unix.Unix_error _ -> dirs
+      with Unix.Unix_error _ | Sys_error _ -> dirs
     in
     LibIndex.load (LibIndex.unique_subdirs dirs)
   in
