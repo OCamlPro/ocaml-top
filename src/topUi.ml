@@ -128,6 +128,7 @@ let mark_error_in_source_buffer buf start_mark end_mark start_char end_char =
   let start = min end_region (start_region#forward_chars start_char) in
   let stop = min end_region (start_region#forward_chars end_char) in
   let errmark = gbuf#create_source_mark ~category:"error" start in
+  let tagmark = gbuf#create_mark ~left_gravity:false start in
   gbuf#apply_tag OBuf.Tags.error ~start ~stop;
   let mark_remover_id = ref None in
   let callback () =
@@ -135,12 +136,13 @@ let mark_error_in_source_buffer buf start_mark end_mark start_char end_char =
      | Some id -> gbuf#misc#disconnect id
      | None -> Tools.debug "Warning, unbound error unmarking callback";
          raise Exit);
-    let start = gbuf#get_iter_at_mark errmark#coerce in
+    let start = gbuf#get_iter_at_mark (`MARK tagmark) in
     let stop = start#forward_to_tag_toggle (Some OBuf.Tags.error) in
     gbuf#remove_tag OBuf.Tags.error ~start ~stop;
     (* buf#remove_source_marks ~category:"error" ~start ~stop ()
          -- may segfault sometimes (??!) *)
-    gbuf#delete_mark errmark#coerce
+    gbuf#delete_mark errmark#coerce;
+    gbuf#delete_mark (`MARK tagmark)
   in
   mark_remover_id := Some (gbuf#connect#changed ~callback)
 
