@@ -116,7 +116,7 @@ let main_view =
   GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`NEVER ()
 
 let toplevel_view =
-  GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`ALWAYS ()
+  GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`AUTOMATIC ()
 
 let status_bar, top_msg, index_msg =
   let bar = GMisc.statusbar ~has_resize_grip:false () in
