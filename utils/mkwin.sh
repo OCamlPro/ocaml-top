@@ -66,6 +66,8 @@ EOF
 find . -iname \*.dll -exec chmod a+x {} \;
 
 sed -i 's#^prefix=.*#prefix='"$PREFIX"'#' lib/pkgconfig/*.pc
+sed -i 's#/devel/dist/win32/[^ ]*#${libdir}#g' lib/pkgconfig/fontconfig.pc
+
 export PKG_CONFIG_PATH="$PREFIX"/lib/pkgconfig
 
 
