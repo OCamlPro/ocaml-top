@@ -32,6 +32,20 @@ let completion_end_iter (iter:GText.iter) : GText.iter =
   let limit = iter#forward_to_line_end in
   iter#forward_find_char ~limit (fun c -> not (is_prefix_char c))
 
+(* protect calls (may raise errors on bad CMI files) *)
+let index_at_pos index buf =
+  let scope =
+    let gbuf = buf.OBuf.gbuffer in
+    IndexScope.read_string
+      (gbuf#get_text ~start:gbuf#start_iter ~stop:(gbuf#get_iter `INSERT) ())
+  in
+  List.fold_left (fun info -> function
+      | IndexScope.Open path ->
+          LibIndex.open_module ~cleanup_path:true info path
+      | IndexScope.Alias (name,path) ->
+          LibIndex.alias ~cleanup_path:true info path [name])
+    index (IndexScope.to_list scope)
+
 let get_completions index buf
     (context: GSourceView2.source_completion_context) =
   let candidates =
@@ -40,7 +54,7 @@ let get_completions index buf
       let start = completion_start_iter stop in
       let word = buf.OBuf.gbuffer#get_text ~start ~stop () in
       Tools.debug "Completing on %S" word;
-      LibIndex.complete index word
+      LibIndex.complete (index_at_pos index buf) word
     with e ->
         Tools.debug "Exception in completion: %s"
           (Printexc.to_string e);
@@ -82,12 +96,13 @@ let setup_show_type index buf message =
       if stop#offset > start#offset then
         let id = gbuf#get_text ~start ~stop () in
         try
-          let i = LibIndex.get index id in
+          let i = LibIndex.get (index_at_pos index buf) id in
           Tools.debug "Found definition for %s" id;
           let str_ty = merge_lines (LibIndex.Print.ty i) in
           let str_ty =
             if str_ty = "" then str_ty else
               LibIndex.(match i.kind with
+                  | Keyword -> ""
                   | Type | ModuleType | ClassType -> " = " ^ str_ty
                   | Exception | Variant _ -> " of " ^ str_ty
                   | Value | Method _ | Field _ | Module | Class ->
@@ -100,7 +115,12 @@ let setup_show_type index buf message =
               str_ty
           );
           Format.flush_str_formatter ()
-        with Not_found -> ""
+        with
+        | Not_found -> ""
+        | e ->
+            Tools.debug "Exception in show-type: %s"
+              (Printexc.to_string e);
+            ""
       else ""
     in
     let msg = (* Add some nicer-looking utf8 chars *)
@@ -188,7 +208,6 @@ let input_line ic =
   let len = String.length s in
   if len > 0 && s.[len - 1] = '\r' then String.sub s 0 (len-1) else s
 
-(* WORK IN PROGRESS: this works but can trigger SEGFAULTS ! *)
 let setup buf (view: GSourceView2.source_view) message =
   let index =
     let dirs = [!Cfg.datadir] in
@@ -200,10 +219,16 @@ let setup buf (view: GSourceView2.source_view) message =
         dirs
       with Unix.Unix_error _ | Sys_error _ -> dirs
     in
-    LibIndex.load (LibIndex.unique_subdirs dirs)
+    try
+      LibIndex.load (LibIndex.Misc.unique_subdirs dirs)
+    with e ->
+      Tools.debug "Exception during LibIndex.load: %s"
+        (Printexc.to_string e);
+      LibIndex.load []
   in
   if Tools.debug_enabled then (
-    (* Enable only for debug at the moment *)
+    (* Enable only for debug at the moment:
+       completion widgets can trigger segfaults *)
     setup_completion index buf view
   );
   setup_show_type index buf message;
