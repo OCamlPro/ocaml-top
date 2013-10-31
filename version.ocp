@@ -1,4 +1,4 @@
-version = "1.1.0"
+version = "1.1.1"
 
 copyright = [ "OCamlPro 2013" ]
 authors = [ "Louis Gesbert <louis.gesbert@ocamlpro.com>" ]
