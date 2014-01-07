@@ -23,5 +23,6 @@ begin library "threads"
      installed = true
      dirname = [ "%{OCAMLLIB}%/threads" ]
      has_byte = false
+     requires = [ "unix" ]
      byte += [ "-custom" ]
 end
