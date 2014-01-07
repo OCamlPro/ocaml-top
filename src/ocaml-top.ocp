@@ -9,8 +9,8 @@ begin program "ocaml-top"
                 "main.ml" ]
       requires = [ "threads" "unix" "str"
                    "lablgtk2" "lablgtk2.sourceview2"
-                   "ocp-indent-lib"
-                   "ocp-index-lib" ]
+                   "ocp-indent.lib"
+                   "ocp-index.lib" ]
       link = [ "-thread" ]
       comp = [ "-thread" ]
       if system = "win32" then
