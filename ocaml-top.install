@@ -1,0 +1,28 @@
+bin: [
+  "_obuild/ocaml-top/ocaml-top.asm" {"ocaml-top"}
+]
+share: [
+  "data/ocaml.lang"
+  "data/light.xml"
+  "data/dark.xml"
+  "data/def.lang"
+  "data/language2.rng"
+  "data/toplevel_init.ml"
+  "data/logo.png"
+  "data/icons/block_marker.png" {"icons/block_marker.png"}
+  "data/icons/eval_marker_next.png" {"icons/eval_marker_next.png"}
+  "data/icons/new.png" {"icons/new.png"}
+  "data/icons/save-as.png" {"icons/save-as.png"}
+  "data/icons/clear.png" {"icons/clear.png"}
+  "data/icons/eval_marker.png" {"icons/eval_marker.png"}
+  "data/icons/open.png" {"icons/open.png"}
+  "data/icons/save.png" {"icons/save.png"}
+  "data/icons/end_block_marker.png" {"icons/end_block_marker.png"}
+  "data/icons/execute-all.png" {"icons/execute-all.png"}
+  "data/icons/quit.png" {"icons/quit.png"}
+  "data/icons/stop.png" {"icons/stop.png"}
+  "data/icons/err_marker.png" {"icons/err_marker.png"}
+  "data/icons/execute.png" {"icons/execute.png"}
+  "data/icons/restart.png" {"icons/restart.png"}
+  "data/icons/warn_marker.png" {"icons/warn_marker.png"}
+]
