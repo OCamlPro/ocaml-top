@@ -1,3 +1,7 @@
+## 1.1.2
+* Fixed dependency to the new ocp-indent/index install format
+* Install through opam-installer
+
 ## 1.1.1
 * Updated for latest ocp-index
 * Status bar and completion now understand above opens
