@@ -44,7 +44,7 @@ uninstall:
 	rm -rf $(DATADIR)
 	ocp-build uninstall ocaml-top
 
-OCAMLFIND_OPTS = -package unix,lablgtk2,lablgtk2.sourceview2,str,ocp-indent-lexer,ocp-indent-utils,ocp-indent-lib,ocp-index-lib -I src -I _obuild/ocaml-top
+OCAMLFIND_OPTS = -package unix,lablgtk2,lablgtk2.sourceview2,str,ocp-indent.lexer,ocp-indent.utils,ocp-indent.lib,ocp-index.lib -I src -I _obuild/ocaml-top
 SRC = $(wildcard src/*.ml) $(wildcard src/*.mli)
 deps.dot: $(BYTE)
 	ocamlfind ocamldoc $(OCAMLFIND_OPTS) $(SRC) \
