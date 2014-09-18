@@ -3,6 +3,7 @@ maintainer: "contact@ocamlpro.com"
 homepage: "http://www.typerex.org/ocaml-top.html"
 license: "GPL 3"
 build: [
+  ["ocp-build" "-init"]
   ["ocp-build" "-scan"]
   ["ocp-build" "ocaml-top"]
 ]
