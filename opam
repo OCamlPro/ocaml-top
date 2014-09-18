@@ -3,11 +3,11 @@ maintainer: "contact@ocamlpro.com"
 homepage: "http://www.typerex.org/ocaml-top.html"
 license: "GPL 3"
 build: [
-  ["ocp-build" "-init" "-scan"]
+  ["ocp-build" "-scan"]
   ["ocp-build" "ocaml-top"]
 ]
 depends: [
-  "ocp-build" {>= "1.99.6-beta"}
+  "ocp-build" {>= "1.99.8-beta"}
   "lablgtk" {>= "2.16.0"}
   "conf-gtksourceview" {= "2"}
   "ocp-indent" {>= "1.4.0"}
