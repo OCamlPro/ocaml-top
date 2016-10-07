@@ -1,4 +1,0 @@
-#!/bin/bash
-rm -f ocp-build.root*
-ocp-build -init -scan
-exec ocp-build configure "$@"
