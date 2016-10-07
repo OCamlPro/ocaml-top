@@ -77,10 +77,10 @@ module Format = struct
   and get_formatter_output_functions =
     pp_get_formatter_output_functions std_formatter
 
-  and set_all_formatter_output_functions =
-    pp_set_all_formatter_output_functions std_formatter
+and set_all_formatter_output_functions =
+    pp_set_formatter_out_functions std_formatter
   and get_all_formatter_output_functions =
-    pp_get_all_formatter_output_functions std_formatter
+    pp_get_formatter_out_functions std_formatter
 
   and set_formatter_tag_functions =
     pp_set_formatter_tag_functions std_formatter
