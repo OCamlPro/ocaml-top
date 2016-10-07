@@ -68,6 +68,7 @@ let char_width = ref 8 (* Computed once the text view is initialized *)
 
 let theme = ref "dark"
 
-let ocaml_cmd = ref "ocamlrun"
-
-let ocaml_opts : string list ref = ref ["ocaml"]
+let ocaml_cmd, ocaml_opts =
+  if Sys.os_type = "Win32"
+  then ref "ocamlrun", ref ["ocaml"]
+  else ref "ocaml", ref []
