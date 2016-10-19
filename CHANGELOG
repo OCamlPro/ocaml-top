@@ -1,3 +1,9 @@
+## 1.1.3
+* Fixed warnings on init (removed Format redirection code)
+* Updated Makefiles for newer ocp-build
+* Load .ocamlinit, following ocaml's default behaviour
+* Fixed issue with `ocamlrun ocaml` on some distributions
+
 ## 1.1.2
 * Fixed dependency to the new ocp-indent/index install format
 * Install through opam-installer
