@@ -105,8 +105,7 @@ let setup_show_type index buf message =
                   | Keyword -> ""
                   | Type | ModuleType | ClassType -> " = " ^ str_ty
                   | Exception | Variant _ -> " of " ^ str_ty
-                  | Value | Method _ | Field _ | Module | Class ->
-                      ": " ^ str_ty)
+                  | _ -> ": " ^ str_ty)
           in
           LibIndex.Format.(
             Format.fprintf Format.str_formatter "%a %a%s"
