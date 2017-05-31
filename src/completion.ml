@@ -139,7 +139,7 @@ let setup_show_type index buf message =
     let idle_id = ref None in
     fun pos ->
       (match !idle_id with Some id -> GMain.Idle.remove id | None -> ());
-      idle_id := Some (GMain.Idle.add @@ fun () -> show_type pos; false)
+      idle_id := Some (GMain.Idle.add @@ fun () -> show_type pos; idle_id := None; false)
   in
   ignore @@ gbuf#connect#notify_cursor_position ~callback
 
