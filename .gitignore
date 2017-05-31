@@ -1,9 +1,11 @@
 _obuild
+_build
 ocaml-top
 inst
 installed.ocp
 ocp-build.root*
 deps.dot
+.merlin
 *~
 *.exe
 *.msi
@@ -16,3 +18,4 @@ deps.dot
 *.o
 *.a
 *.zip
+*.install

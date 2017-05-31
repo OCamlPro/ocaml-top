@@ -20,9 +20,13 @@ A simple cross-platform OCaml code editor built for top-level evaluation.
 
 ## Build
 
-Builds using `ocp-build`. You should just need to run `make` or `ocp-build` from
-the root of the project. You will need `ocp-indent` and `ocp-index` installed
-too.
+The preferred way is `opam insall ocaml-top` (or `opam pin add ocaml-top .` from
+the source directory). The following explains how to compile directly, and on
+Windows.
+
+Builds using `jbuilder`. You should just need to run `make` or `jbuilder build`
+from the root of the project. You will need `ocp-indent` and `ocp-index`
+installed too.
 
 To build on Windows, you will need cygwin with mingw32, and the mingw ocaml
 distribution (not cygwin !). See `utils/mkwin.sh` which may help you setup the
