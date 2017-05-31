@@ -295,6 +295,7 @@ let reindent t =
     kind = IndentPrinter.Extended buf_indent;
   }
   in
+  t.block_marks <- [];
   let _cleanup_marks =
     buf#remove_source_marks ~category:"block_mark"
       ~start:buf#start_iter ~stop:buf#end_iter ();
