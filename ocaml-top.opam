@@ -7,9 +7,10 @@ homepage: "http://www.typerex.org/ocaml-top.html"
 dev-repo: "https://github.com/OCamlPro/ocaml-top.git"
 bug-reports: "https://github.com/OCamlPro/ocaml-top/issues"
 license: "GPL-3"
-build: ["jbuilder" "build" "-p" "name"]
+build: ["jbuilder" "build" "-p" name]
 depends: [
   "jbuilder"
+  "ocp-pp"
   "lablgtk" {>= "2.16.0"}
   "conf-gtksourceview" {= "2"}
   "ocp-indent" {>= "1.4.0"}
