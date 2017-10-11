@@ -20,7 +20,7 @@ A simple cross-platform OCaml code editor built for top-level evaluation.
 
 ## Build
 
-The preferred way is `opam insall ocaml-top` (or `opam pin add ocaml-top .` from
+The preferred way is `opam install ocaml-top` (or `opam pin add ocaml-top .` from
 the source directory). The following explains how to compile directly, and on
 Windows.
 
