@@ -92,8 +92,7 @@ module File = struct
         if size > Sys.max_string_length then
           failwith "Maximum file size exceeded";
         let ic = open_in_bin filename in
-        let buf = String.create size in
-        really_input ic buf 0 size;
+        let buf = really_input_string ic size in
         close_in ic;
         buf
       with
