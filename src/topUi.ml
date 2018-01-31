@@ -92,10 +92,7 @@ let display_stdout top response =
         let line =
           if offset >= 1024 then ""
           else if offset + String.length line <= 1024 then line
-          else
-            let s = String.sub line 0 (1024 - offset) in
-            String.blit "..." 0 s (1024 - offset - 3) 3;
-            s
+          else (String.sub line 0 (1024 - offset - 3) ^ "...")
         in
         insert_top ~tags:[OBuf.Tags.stdout] top top.stdout_mark line;
         if rest <> [] then
