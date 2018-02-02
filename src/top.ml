@@ -82,7 +82,7 @@ let receive_event t f =
    Windows: we read from the ocaml process manually with a dedicated thread *)
 let reader_thread fdescr receive_from_main_thread build_response t =
   let buf_len = 4096 in
-  let buf = String.create buf_len in
+  let buf = Bytes.create buf_len in
   let rec loop () =
     if t.status = Dead then
       (Tools.debug "Ocaml process %d dead, reader thread terminating" t.pid;
@@ -90,7 +90,7 @@ let reader_thread fdescr receive_from_main_thread build_response t =
     try
       let nread = Unix.read fdescr buf 0 buf_len in
       if nread <= 0 then Thread.exit ();
-      let response = String.sub buf 0 nread in
+      let response = Bytes.sub_string buf 0 nread in
       (* Tools.debug "Incoming response from ocaml: %d %s" nread response; *)
       if t.status = Dead then
         (Tools.debug "OCaml process marked as dead, terminating reader thread";
