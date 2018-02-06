@@ -12,8 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Tools.Ops
-
 let _ = GtkMain.Main.init()
 
 module Controls = struct

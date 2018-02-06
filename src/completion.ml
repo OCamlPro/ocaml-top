@@ -12,7 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Tools.Ops
 module OBuf = OcamlBuffer
 
 let is_prefix_char =
