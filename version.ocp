@@ -1,6 +1,0 @@
-version = "1.1.4"
-
-copyright = [ "OCamlPro 2013,2016" ]
-authors = [ "Louis Gesbert <louis.gesbert@ocamlpro.com>" ]
-
-license = [ "GPLv3" ]

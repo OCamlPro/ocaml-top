@@ -1,3 +1,6 @@
+## 1.1.5
+* Fixes for -safe-string and OCaml 4.06.0
+
 ## 1.1.4
 * Change build system to jbuilder (and fix linking on recent OCaml)
 * Fixed GTK warnings and a segfault
