@@ -12,11 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-module Ops: sig
-  val (@@) : ('a -> 'b) -> 'a -> 'b
-  val (|>) : 'a -> ('a -> 'b) -> 'b
-end
-
 val debug_enabled: bool
 
 val debug: ('a, out_channel, unit) format -> 'a
@@ -26,10 +21,6 @@ val printexc: exn -> string
 exception Recoverable_error of string
 
 val recover_error: ('a, unit, string, 'b) format4 -> 'a
-
-(** [string_split_chars chars str] cuts [str] at all occurence of any char
-    belonging to [chars]. Empty strings are discarded. *)
-val string_split_chars: string -> string -> string list
 
 (** Splits a string into lines. Newline characters are discarded. Windows
     compatible. If the string ends with a newline, the result will end with

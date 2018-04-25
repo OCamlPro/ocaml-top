@@ -192,6 +192,7 @@
 	  <keyword>in</keyword>
 	  <keyword>let</keyword>
 	  <keyword>match</keyword>
+	  <keyword>nonrec</keyword>
 	  <keyword>rec</keyword>
 	  <keyword>then</keyword>
 	  <keyword>to</keyword>
@@ -246,6 +247,7 @@
 	  <keyword>ref</keyword>
 	  <keyword>array</keyword>
 	  <keyword>bool</keyword>
+	  <keyword>bytes</keyword>
 	  <keyword>char</keyword>
 	  <keyword>float</keyword>
 	  <keyword>int</keyword>
@@ -262,6 +264,8 @@
 	  <keyword>Big_int</keyword>
 	  <keyword>Bigarray</keyword>
 	  <keyword>Buffer</keyword>
+	  <keyword>Bytes</keyword>
+	  <keyword>BytesLabels</keyword>
 	  <keyword>Callback</keyword>
 	  <keyword>CamlinternalMod</keyword>
 	  <keyword>CamlinternalOO</keyword>

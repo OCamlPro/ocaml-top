@@ -12,12 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-module Ops = struct
-  external (@@) : ('a -> 'b) -> 'a -> 'b = "%apply"
-  external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply"
-end
-include Ops
-
 let debug_enabled =
   try match Sys.getenv "OCP_DEBUG" with "" | "0" -> false | _ -> true
   with Not_found -> false
@@ -46,24 +40,6 @@ let recover_error fmt =
       debug "Error: %s" s;
       raise (Recoverable_error s))
     fmt
-
-let string_split_chars chars str =
-  let len = String.length str in
-  let rec split pos =
-    let rec lookup i =
-      if i >= len then raise Not_found
-      else if String.contains chars str.[i] then i
-      else lookup (succ i)
-    in
-    try
-      let i = lookup pos in
-      if i > pos then String.sub str pos (i - pos) :: split (succ i)
-      else split (succ i)
-    with Not_found | Invalid_argument _ ->
-        if pos < len then [ String.sub str pos (len - pos) ]
-        else []
-  in
-  split 0
 
 let split_lines str =
   let len = String.length str in

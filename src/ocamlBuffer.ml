@@ -12,8 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Tools.Ops
-
 module GSourceView_params = struct
   let syntax () =
     let syntax_mgr = GSourceView2.source_language_manager ~default:true in
