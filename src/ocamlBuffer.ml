@@ -16,7 +16,7 @@ open Tools.Ops
 
 module GSourceView_params = struct
   let syntax () =
-    let syntax_mgr = GSourceView2.source_language_manager ~default:true in
+    let syntax_mgr = GSourceView3.source_language_manager ~default:true in
     if syntax_mgr#search_path <> [!Cfg.datadir] then
       syntax_mgr#set_search_path [!Cfg.datadir];
     let syn = syntax_mgr#language "ocp-edit-ocaml" in
@@ -24,7 +24,7 @@ module GSourceView_params = struct
     syn
 
   let style () =
-    let style_mgr = GSourceView2.source_style_scheme_manager ~default:true in
+    let style_mgr = GSourceView3.source_style_scheme_manager ~default:true in
     if style_mgr#search_path <> [!Cfg.datadir] then
       style_mgr#set_search_path [!Cfg.datadir];
     let sty = style_mgr#style_scheme !Cfg.theme in
@@ -40,12 +40,12 @@ type reindent_needed = No_reindent
 
 type t = {
   mutable filename: string option;
-  gbuffer: GSourceView2.source_buffer;
+  gbuffer: GSourceView3.source_buffer;
   mutable need_reindent: reindent_needed;
-  eval_mark: GSourceView2.source_mark;
-  eval_mark_end: GSourceView2.source_mark;
+  eval_mark: GSourceView3.source_mark;
+  eval_mark_end: GSourceView3.source_mark;
   mutable block_marks:
-    (GSourceView2.source_mark * GSourceView2.source_mark) list;
+    (GSourceView3.source_mark * GSourceView3.source_mark) list;
   mutable on_reindent: unit -> unit;
 }
 
@@ -385,7 +385,7 @@ let create ?name ?(contents="") () =
         "Could not open %s because it contains invalid utf-8 \
          characters. Please fix it or choose another file"
         (match name with Some n -> n | None -> "this file");
-    GSourceView2.source_buffer
+    GSourceView3.source_buffer
       ~text:contents
       ?language:(GSourceView_params.syntax ())
       ?style_scheme:(GSourceView_params.style ())

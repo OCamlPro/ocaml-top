@@ -1,0 +1,25 @@
+(library
+ (name sigint_win)
+ (enabled_if (= %{os_type} win32))
+ (c_names sigint_win)
+ (modules))
+
+(library
+ (name sigint_unix)
+ (enabled_if (<> %{os_type} win32))
+ (c_names sigint_unix)
+ (modules))
+
+(library
+ (name top)
+ (modules tools cfg top)
+ (wrapped false)
+ (libraries unix threads str
+   (select sigint from (sigint_win -> top)
+                       (sigint_unix -> top))))
+
+(executable
+ (name main)
+ (modules ocamlBuffer completion topUi gui main)
+ (public_name ocaml-top)
+ (libraries top threads ocp-indent.lib ocp-index.lib lablgtk3 lablgtk3-sourceview3))

@@ -99,9 +99,6 @@ module Controls = struct
     Tools.debug "Event triggered: %s" @@ to_string command;
     ignore @@ (signal command)#activate ()
 
-  let add_trigger command widget =
-    (signal command)#connect_proxy (widget :> GObj.widget)
-
   let enable command =
     (signal command)#set_sensitive true
 
@@ -119,7 +116,7 @@ let toplevel_view =
   GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`AUTOMATIC ()
 
 let status_bar, top_msg, index_msg =
-  let bar = GMisc.statusbar ~has_resize_grip:false () in
+  let bar = GMisc.statusbar (* ~has_resize_grip:false *) () in
   let ctx_top = bar#new_context ~name:"top" in
   let ctx_index = bar#new_context ~name:"index" in
   bar,
@@ -162,21 +159,20 @@ let as_widget o = (o :> GObj.widget)
 
 let main_window () =
   let logo = GdkPixbuf.from_file (Filename.concat !Cfg.datadir "logo.png") in
-  let tooltips = GData.tooltips () in
   let mkbutton ctrl =
     let label,text = Controls.help ctrl in
     let btn = GButton.tool_button ~stock:(Controls.stock ctrl) ~label () in
-    Controls.add_trigger ctrl btn;
+    ignore (btn#connect#clicked ~callback:(fun () -> Controls.trigger ctrl));
     btn#set_label label;
     btn#set_icon_widget (Controls.icon ctrl :> GObj.widget);
-    tooltips#set_tip ~text (btn :> GObj.widget);
+    btn#set_tooltip_text text;
     (* ignore @@ btn#connect#clicked ~callback:(fun () -> Controls.trigger ctrl); *)
     (btn :> GObj.widget)
   in
   let win =
     GWindow.window
       ~title:("ocaml-top "^Cfg.version)
-      ~height:600 ~allow_shrink:true (* ~width:800 ~show:true *)
+      ~height:600 (* ~allow_shrink:true *) (* ~width:800 ~show:true *)
       ~icon:logo
       ()
     |> add [
@@ -235,7 +231,7 @@ let set_window_title window fmt =
 let open_text_view buffer =
   Tools.debug "open text view";
   let view =
-    GSourceView2.source_view
+    GSourceView3.source_view
       ~source_buffer:buffer
       ~auto_indent:true
       ~highlight_current_line:true
@@ -251,24 +247,25 @@ let open_text_view buffer =
   List.iter main_view#remove main_view#children;
   let _set_mark_categories =
     let (/) = Filename.concat in
-    let icon name = GdkPixbuf.from_file (!Cfg.datadir/"icons"/name^".png") in
-    view#set_mark_category_pixbuf ~category:"block_mark"
-      (Some (icon "block_marker"));
-    view#set_mark_category_pixbuf ~category:"end_block_mark"
-      (if Tools.debug_enabled then Some (icon "end_block_marker")
-       else None);
-    view#set_mark_category_pixbuf ~category:"eval_next"
-      (if Tools.debug_enabled then Some (icon "eval_marker_next")
-       else None);
-    view#set_mark_category_pixbuf ~category:"eval"
-      (Some (icon "eval_marker"));
-    view#set_mark_category_pixbuf ~category:"error"
-      (Some (icon "err_marker"));
-    view#set_mark_category_priority ~category:"end_block_mark" 0;
-    view#set_mark_category_priority ~category:"block_mark" 1;
-    view#set_mark_category_priority ~category:"eval_next" 3;
-    view#set_mark_category_priority ~category:"eval" 4;
-    view#set_mark_category_priority ~category:"error" 5;
+    let icon name =
+      let attrs = GSourceView3.source_mark_attributes () in
+      (match name with None -> () | Some n ->
+          attrs#set_pixbuf
+            (GdkPixbuf.from_file (!Cfg.datadir/"icons"/n^".png")));
+      attrs
+    in
+    view#set_mark_attributes ~category:"block_mark"
+      (icon (Some "block_marker")) 1;
+    view#set_mark_attributes ~category:"end_block_mark"
+      (icon (if Tools.debug_enabled then Some "end_block_marker"
+             else None)) 0;
+    view#set_mark_attributes ~category:"eval_next"
+      (icon (if Tools.debug_enabled then Some "eval_marker_next"
+             else None)) 3;
+    view#set_mark_attributes ~category:"eval"
+      (icon (Some "eval_marker")) 4;
+    view#set_mark_attributes ~category:"error"
+      (icon (Some "err_marker")) 5;
   in
   view#misc#modify_font_by_name !Cfg.font;
   main_view#add (view :> GObj.widget);
@@ -279,7 +276,7 @@ let open_text_view buffer =
 let open_toplevel_view top_buf =
   Tools.debug "open top view";
   let view =
-    GSourceView2.source_view
+    GSourceView3.source_view
       ~source_buffer:top_buf
       ~auto_indent:false
       ~highlight_current_line:false
@@ -298,14 +295,14 @@ let open_toplevel_view top_buf =
   view
 
 let set_font
-    (src_view:GSourceView2.source_view)
-    (top_view:GSourceView2.source_view)
+    (src_view:GSourceView3.source_view)
+    (top_view:GSourceView3.source_view)
     str
   =
-  let font = new GPango.font_description (GPango.font_description str) in
+  let font = GPango.font_description_from_string str in
   Cfg.font := font#to_string;
-  src_view#misc#modify_font font#fd;
-  top_view#misc#modify_font font#fd;
+  src_view#misc#modify_font font;
+  top_view#misc#modify_font font;
   Cfg.char_width :=
     GPango.to_pixels
       (src_view#misc#pango_context#get_metrics ())#approx_char_width;
@@ -404,20 +401,19 @@ module Dialogs = struct
     dialog#show ()
 
   let choose_font
-      (src_view:GSourceView2.source_view) (top_view:GSourceView2.source_view)
+      (src_view:GSourceView3.source_view) (top_view:GSourceView3.source_view)
       ~on_font_change
       ()
-    =
-    let dialog = GWindow.font_selection_dialog () in
-    dialog#selection#set_font_name !Cfg.font;
-    ignore @@ dialog#connect#response ~callback:(function
-      | `APPLY ->
-          set_font src_view top_view dialog#selection#font_name;
-          on_font_change ()
-      | `OK ->
-          set_font src_view top_view dialog#selection#font_name;
-          dialog#destroy ();
-          on_font_change ()
-      | `CANCEL | `DELETE_EVENT -> dialog#destroy ());
-    dialog#show ()
+    = ()
+    (* let dialog = GMisc.font_selection ~font_name:!Cfg.font () in
+     * ignore @@ dialog# ~callback:(function
+     *   | `APPLY ->
+     *       set_font src_view top_view dialog#selection#font_name;
+     *       on_font_change ()
+     *   | `OK ->
+     *       set_font src_view top_view dialog#selection#font_name;
+     *       dialog#destroy ();
+     *       on_font_change ()
+     *   | `CANCEL | `DELETE_EVENT -> dialog#destroy ());
+     * dialog#show () *)
 end

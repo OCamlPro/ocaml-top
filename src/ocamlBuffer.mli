@@ -16,13 +16,13 @@ type reindent_needed
 
 type t = private {
   mutable filename: string option;
-  gbuffer: GSourceView2.source_buffer;
+  gbuffer: GSourceView3.source_buffer;
   mutable need_reindent: reindent_needed;
-  eval_mark: GSourceView2.source_mark;
-  eval_mark_end: GSourceView2.source_mark;
+  eval_mark: GSourceView3.source_mark;
+  eval_mark_end: GSourceView3.source_mark;
   (* ordered from bottom to top *)
   mutable block_marks:
-    (GSourceView2.source_mark * GSourceView2.source_mark) list;
+    (GSourceView3.source_mark * GSourceView3.source_mark) list;
   mutable on_reindent: unit -> unit;
 }
 
@@ -66,6 +66,6 @@ module Tags: sig
 end
 
 module GSourceView_params: sig
-  val syntax: unit -> GSourceView2.source_language option
-  val style: unit -> GSourceView2.source_style_scheme option
+  val syntax: unit -> GSourceView3.source_language option
+  val style: unit -> GSourceView3.source_style_scheme option
 end

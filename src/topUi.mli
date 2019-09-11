@@ -13,7 +13,7 @@
 (**************************************************************************)
 
 type top = private {
-  buffer: GSourceView2.source_buffer;
+  buffer: GSourceView3.source_buffer;
   mutable process: Top.t option;
   stdout_mark: GText.mark;
   ocaml_mark: GText.mark;
@@ -30,4 +30,4 @@ val top_start:
 
 val topeval: ?full:bool -> OcamlBuffer.t -> top -> unit
 
-val show_spinner:  top -> GSourceView2.source_view -> bool -> unit
+val show_spinner:  top -> GSourceView3.source_view -> bool -> unit

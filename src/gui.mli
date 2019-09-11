@@ -38,7 +38,7 @@ module Dialogs : sig
   val confirm : title:string -> string -> ?no:(unit -> unit) -> unit cps
 
   val choose_font :
-    GSourceView2.source_view -> GSourceView2.source_view ->
+    GSourceView3.source_view -> GSourceView3.source_view ->
     on_font_change:(unit -> unit) -> unit
     -> unit
 end
@@ -48,9 +48,9 @@ val main_window : unit -> GWindow.window
 val set_window_title :
   GWindow.window -> ('a, unit, string, string, string, unit) format6 -> 'a
 
-val open_text_view : GSourceView2.source_buffer -> GSourceView2.source_view
+val open_text_view : GSourceView3.source_buffer -> GSourceView3.source_view
 
-val open_toplevel_view : GSourceView2.source_buffer -> GSourceView2.source_view
+val open_toplevel_view : GSourceView3.source_buffer -> GSourceView3.source_view
 
 (* Displays a message in the status bar *)
 val top_msg : string -> unit
@@ -58,7 +58,7 @@ val index_msg : string -> unit
 
 (* call _after_ opening the views *)
 val set_font :
-  GSourceView2.source_view -> GSourceView2.source_view -> string
+  GSourceView3.source_view -> GSourceView3.source_view -> string
   -> unit
 
 val switch_fullscreen : GWindow.window -> unit

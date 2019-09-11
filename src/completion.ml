@@ -21,6 +21,25 @@ let is_prefix_char =
     Glib.Unichar.isalnum gchar ||
     List.mem gchar chars
 
+let utfify msg =
+ (* Add some nicer-looking utf8 chars *)
+  let len = String.length msg in
+  let buf = Buffer.create (len + len / 2) in
+  let rec replace i =
+    if i >= len then Buffer.contents buf
+    else if i = len - 1
+    then (Buffer.add_char buf msg.[i]; Buffer.contents buf)
+    else if msg.[i] = '-' && msg.[i+1] = '>'
+    then (Buffer.add_string buf "\xe2\x86\x92"; replace (i+2))
+    else if msg.[i] = '\'' && msg.[i+1] >= 'a' && msg.[i+1] <= 'x'
+    then (Buffer.add_char buf '\xce';
+          Buffer.add_char buf
+            (char_of_int (0xb1 + int_of_char msg.[i+1] - int_of_char 'a'));
+          replace (i+2))
+    else (Buffer.add_char buf msg.[i]; replace (i+1))
+  in
+  replace 0
+
 let completion_start_iter (iter:GText.iter) : GText.iter =
   let limit = iter#set_line_offset 0 in
   let iter =
@@ -47,7 +66,7 @@ let index_at_pos index buf =
     index (IndexScope.to_list scope)
 
 let get_completions index buf
-    (context: GSourceView2.source_completion_context) =
+    (context: GSourceView3.source_completion_context) =
   let candidates =
     try
       let stop = context#iter in
@@ -60,17 +79,31 @@ let get_completions index buf
           (Printexc.to_string e);
         []
   in
-  List.map (fun info ->
-      let text = LibIndex.Print.path info in
-      let label = Printf.sprintf "%s %s"
-          (LibIndex.Print.name info) (LibIndex.Print.ty info)
-      in
-      (GSourceView2.source_completion_item ~label ~text
+  let txt_lbl_doc =
+    List.map (fun info ->
+        LibIndex.Print.path ~short:true info,
+        (LibIndex.Print.name info |> Glib.Markup.escape_text),
+        (Printf.sprintf "<i>%s%s</i>"
+           LibIndex.(match info.kind with
+               | Keyword -> " (keyword)"
+               | Type | ModuleType | ClassType -> " type = "
+               | Exception | Variant _ -> " of "
+               | _ -> ": ")
+           (utfify (LibIndex.Print.ty info) |> Glib.Markup.escape_text))
+      ) candidates
+  in
+  let cwidth =
+    List.fold_left (fun acc (_,l,_) -> max acc (String.length l)) 0 txt_lbl_doc
+  in
+  List.map (fun (text,lbl,doc) ->
+      let label = Printf.sprintf "%-*s%s" cwidth lbl doc in
+      (GSourceView3.source_completion_item_with_markup ~label ~text
          ?icon:None
-         ~info:(LibIndex.Print.ty info)
+         (* ~info:(LibIndex.Print.ty info) *)
          ()
-       :> GSourceView2.source_completion_proposal)
-    ) candidates
+       :> GSourceView3.source_completion_proposal))
+    txt_lbl_doc
+
 
 let merge_lines str =
   let len = String.length str in
@@ -99,6 +132,7 @@ let setup_show_type index buf message =
           let i = LibIndex.get (index_at_pos index buf) id in
           Tools.debug "Found definition for %s" id;
           let str_ty = merge_lines (LibIndex.Print.ty i) in
+          let str_ty = utfify str_ty in
           let str_ty =
             if str_ty = "" then str_ty else
               LibIndex.(match i.kind with
@@ -110,7 +144,7 @@ let setup_show_type index buf message =
           LibIndex.Format.(
             Format.fprintf Format.str_formatter "%a %a%s"
               (fun fmt -> kind fmt) i
-              (fun fmt -> path fmt) i
+              (fun fmt -> path ~short:true fmt) i
               str_ty
           );
           Format.flush_str_formatter ()
@@ -122,17 +156,7 @@ let setup_show_type index buf message =
             ""
       else ""
     in
-    let msg = (* Add some nicer-looking utf8 chars *)
-      let len = String.length msg in
-      let buf = Buffer.create (len + len / 2) in
-      let rec replace i =
-        if i >= len then Buffer.contents buf
-        else if msg.[i] = '-' && msg.[i+1] = '>'
-        then (Buffer.add_string buf "\xe2\x86\x92"; replace (i+2))
-        else (Buffer.add_char buf msg.[i]; replace (i+1))
-      in
-      replace 0
-    in
+    let msg = utfify msg in
     message msg
   in
   let callback =
@@ -143,11 +167,11 @@ let setup_show_type index buf message =
   in
   ignore @@ gbuf#connect#notify_cursor_position ~callback
 
-let setup_completion index buf (view: GSourceView2.source_view) =
+let setup_completion index buf (view: GSourceView3.source_view) =
   let ocaml_completion_provider =
     (* ref needed for bootstrap (!) *)
     let provider_ref = ref None in
-    let custom_provider : GSourceView2.custom_completion_provider =
+    let custom_provider : GSourceView3.custom_completion_provider =
       object (self)
         method name = "Available library values"
         method icon =  None
@@ -180,7 +204,7 @@ let setup_completion index buf (view: GSourceView2.source_view) =
       end
     in
     let provider =
-      GSourceView2.source_completion_provider custom_provider
+      GSourceView3.source_completion_provider custom_provider
     in
     provider_ref := Some provider;
     provider
@@ -203,11 +227,11 @@ let setup_completion index buf (view: GSourceView2.source_view) =
 
 (* workaround windows input_line bug *)
 let input_line ic =
-  let s = Pervasives.input_line ic in
+  let s = input_line ic in
   let len = String.length s in
   if len > 0 && s.[len - 1] = '\r' then String.sub s 0 (len-1) else s
 
-let setup buf (view: GSourceView2.source_view) message =
+let setup buf (view: GSourceView3.source_view) message =
   let index =
     let dirs = [!Cfg.datadir] in
     let dirs =
@@ -225,7 +249,7 @@ let setup buf (view: GSourceView2.source_view) message =
         (Printexc.to_string e);
       LibIndex.load []
   in
-  if Tools.debug_enabled then (
+  if true || Tools.debug_enabled then (
     (* Enable only for debug at the moment:
        completion widgets can trigger segfaults *)
     setup_completion index buf view

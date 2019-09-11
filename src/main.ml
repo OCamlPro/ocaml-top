@@ -117,9 +117,7 @@ module UIActions = struct
       ()
 
   let zoom value top_view src_view top buf =
-    let font =
-      new GPango.font_description (GPango.font_description !Cfg.font)
-    in
+    let font = GPango.font_description_from_string !Cfg.font in
     let size = max 6 @@ min 24 @@ font#size / Pango.scale +  value in
     font#modify ~size:(size * Pango.scale) ();
     Gui.set_font src_view top_view font#to_string;

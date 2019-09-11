@@ -1,0 +1,27 @@
+(install
+ (section share)
+ (files
+  ocaml.lang
+  light.xml
+  dark.xml
+  def.lang
+  language2.rng
+  toplevel_init.ml
+  logo.png
+  (icons/block_marker.png as icons/block_marker.png)
+  (icons/clear.png as icons/clear.png)
+  (icons/end_block_marker.png as icons/end_block_marker.png)
+  (icons/err_marker.png as icons/err_marker.png)
+  (icons/eval_marker_next.png as icons/eval_marker_next.png)
+  (icons/eval_marker.png as icons/eval_marker.png)
+  (icons/execute-all.png as icons/execute-all.png)
+  (icons/execute.png as icons/execute.png)
+  (icons/new.png as icons/new.png)
+  (icons/open.png as icons/open.png)
+  (icons/quit.png as icons/quit.png)
+  (icons/restart.png as icons/restart.png)
+  (icons/save-as.png as icons/save-as.png)
+  (icons/save.png as icons/save.png)
+  (icons/spinner.gif as icons/spinner.gif)
+  (icons/stop.png as icons/stop.png)
+  (icons/warn_marker.png as icons/warn_marker.png)))

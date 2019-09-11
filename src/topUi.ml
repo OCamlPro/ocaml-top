@@ -16,7 +16,7 @@ open Tools.Ops
 module OBuf = OcamlBuffer
 
 type top = {
-  buffer: GSourceView2.source_buffer;
+  buffer: GSourceView3.source_buffer;
   mutable process: Top.t option;
   (* marks in the top view where message from different sources are
      printed. Useful for not mixing them, and keeping locations *)
@@ -68,7 +68,7 @@ let replace_top_marks top =
   top.buffer#move_mark top.prompt_mark
     ~where:top.buffer#end_iter
 
-let duplicate_mark (gbuf:GSourceView2.source_buffer) ?left_gravity mark =
+let duplicate_mark (gbuf:GSourceView3.source_buffer) ?left_gravity mark =
   gbuf#create_mark ?left_gravity (gbuf#get_iter_at_mark mark)
 
 (* Insert in the toplevel view *)
@@ -117,13 +117,17 @@ let display_top_response top response =
   disp_lines (Tools.split_lines response)
 
 (* Marks characters start_char..end_char within region start_mark..end_mark *)
-let mark_error_in_source_buffer buf start_mark end_mark start_char end_char =
+let mark_error_in_source_buffer buf start_mark end_mark
+    start_line start_char end_char =
   let gbuf = buf.OBuf.gbuffer in
   let start_region = gbuf#get_iter_at_mark start_mark in
   let end_region = gbuf#get_iter_at_mark end_mark in
   let min i1 i2 = if i1#offset > i2#offset then i2 else i1 in
-  let start = min end_region (start_region#forward_chars start_char) in
-  let stop = min end_region (start_region#forward_chars end_char) in
+  let start =
+    min end_region
+      ((start_region#forward_lines (start_line - 1))#forward_chars start_char)
+  in
+  let stop = min end_region (start#forward_chars (end_char - start_char)) in
   let errmark = gbuf#create_source_mark ~category:"error" start in
   let tagmark = gbuf#create_mark ~left_gravity:false start in
   gbuf#apply_tag OBuf.Tags.error ~start ~stop;
@@ -180,7 +184,7 @@ let handle_response top response response_start_mark
             let success = success && word <> "Exception" in
             (* Syntax coloration is set by default in the buffer *)
             parse_response success (iter#forward_lines (List.length msg)) rest
-        | "Characters" | "File" -> (* beginning of an error/warning message *)
+        | "Characters" | "File" | "Line" -> (* beginning of an error/warning message *)
             let msg1, rest =
               split_when [line] lines @@ fun line ->
                 match first_word line with
@@ -194,8 +198,8 @@ let handle_response top response response_start_mark
             in
             let _ =
               try
-                Scanf.sscanf line "Characters %d-%d" @@
-                  mark_error_in_source_buffer buf src_start_mark src_end_mark
+                Scanf.sscanf line "Line %d, characters %d-%d:" @@
+                mark_error_in_source_buffer buf src_start_mark src_end_mark
               with Scanf.Scan_failure _ | End_of_file ->
                   Tools.debug "OCaml err message parsing failure: %s" line
             in
@@ -285,7 +289,7 @@ let topeval ?(full=false) buf top =
 
 let create_buffer () =
   let buffer =
-    GSourceView2.source_buffer
+    GSourceView3.source_buffer
       ?language:(OBuf.GSourceView_params.syntax ())
       ?style_scheme:(OBuf.GSourceView_params.style ())
       ~highlight_matching_brackets:false
@@ -303,7 +307,7 @@ let create_buffer () =
   { buffer; process = None;
     stdout_mark; ocaml_mark; prompt_mark }
 
-let show_spinner top (view: GSourceView2.source_view) =
+let show_spinner top (view: GSourceView3.source_view) =
   let spinner_mark = `MARK (duplicate_mark top.buffer top.prompt_mark) in
   let anim () =
     let (/) = Filename.concat in

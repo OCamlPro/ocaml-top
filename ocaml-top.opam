@@ -1,19 +1,22 @@
-opam-version: "1.2"
+opam-version: "2.0"
 version: "1.1.5"
 maintainer: "contact@ocamlpro.com"
-tags: [ "org:ocamlpro" "gui" "teaching" "toplevel" ]
 authors: "Louis Gesbert <louis.gesbert@ocamlpro.com>"
-homepage: "http://www.typerex.org/ocaml-top.html"
-dev-repo: "https://github.com/OCamlPro/ocaml-top.git"
-bug-reports: "https://github.com/OCamlPro/ocaml-top/issues"
 license: "GPL-3"
-available: [ ocaml-version >= "4.02.0" ]
-build: ["jbuilder" "build" "-p" name]
+tags: ["org:ocamlpro" "gui" "teaching" "toplevel"]
+homepage: "http://www.typerex.org/ocaml-top.html"
+bug-reports: "https://github.com/OCamlPro/ocaml-top/issues"
 depends: [
-  "jbuilder"
+  "ocaml" {>= "4.02.0"}
+  "dune" {>= "1.10"}
   "ocp-pp"
   "lablgtk" {>= "2.16.0"}
   "conf-gtksourceview" {= "2"}
   "ocp-indent" {>= "1.4.0"}
   "ocp-index" {>= "1.0.0"}
 ]
+build: ["dune" "build" "-p" name]
+dev-repo: "git+https://github.com/OCamlPro/ocaml-top.git"
+url {
+  src: "git+file:///home/lg/ocamlpro/ocaml-top#master"
+}
