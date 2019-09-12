@@ -275,8 +275,8 @@ let topeval ?(full=false) buf top =
             else
               (if should_update_eval_mark then
                  if success then
-                   gbuf#move_mark buf.OBuf.eval_mark#coerce ~where:
-                     (gbuf#get_iter_at_mark stop_mark)
+                   let where = (gbuf#get_iter_at_mark stop_mark)#forward_line in
+                   gbuf#move_mark buf.OBuf.eval_mark#coerce ~where
                  else
                    (let where = gbuf#get_iter_at_mark start_mark in
                     gbuf#move_mark buf.OBuf.eval_mark#coerce ~where;
