@@ -80,6 +80,11 @@ let get_completions index buf
         []
   in
   let txt_lbl_doc =
+    let oneline s =
+      if String.contains s '\n'
+      then String.sub s 0 (String.index s '\n') ^ " ..."
+      else s
+    in
     List.map (fun info ->
         LibIndex.Print.path ~short:true info,
         (LibIndex.Print.name info |> Glib.Markup.escape_text),
@@ -89,7 +94,8 @@ let get_completions index buf
                | Type | ModuleType | ClassType -> " type = "
                | Exception | Variant _ -> " of "
                | _ -> ": ")
-           (utfify (LibIndex.Print.ty info) |> Glib.Markup.escape_text))
+           (utfify (oneline (LibIndex.Print.ty info))
+            |> Glib.Markup.escape_text))
       ) candidates
   in
   let cwidth =
@@ -210,7 +216,7 @@ let setup_completion index buf (view: GSourceView3.source_view) =
     provider
   in
   let compl = view#completion in
-  compl#set_remember_info_visibility true;
+  (* compl#set_remember_info_visibility true; *)
   compl#set_show_headers false;
   ignore (compl#add_provider ocaml_completion_provider);
   (* let compl_visible = ref false in *)
