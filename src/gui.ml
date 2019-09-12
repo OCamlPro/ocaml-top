@@ -108,10 +108,10 @@ end
 (* use `ALWAYS for vertical scrollbars, otherwise it is possible to trigger a
    bug in GTK that locks the mouse when resizing the panes *)
 let main_view =
-  GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`NEVER ()
+  GBin.scrolled_window (* ~vpolicy:`ALWAYS *) ~hpolicy:`NEVER ()
 
 let toplevel_view =
-  GBin.scrolled_window ~vpolicy:`ALWAYS ~hpolicy:`AUTOMATIC ()
+  GBin.scrolled_window (* ~vpolicy:`ALWAYS *) ~hpolicy:`AUTOMATIC ()
 
 let status_bar, top_msg, index_msg =
   let bar = GMisc.statusbar (* ~has_resize_grip:false *) () in
@@ -169,7 +169,7 @@ let main_window () =
   let win =
     GWindow.window
       ~title:("ocaml-top "^Cfg.version)
-      ~height:600 (* ~allow_shrink:true *) (* ~width:800 ~show:true *)
+      (* ~height:800 ~width:1200 *)
       ~icon:logo
       ()
     |> add [
@@ -193,15 +193,15 @@ let main_window () =
         |> as_widget;
       ]
       |> add [
-        GPack.paned `HORIZONTAL ()
-        |> add [
-          main_view;
-          toplevel_view;
-        ];
+        let paned = GPack.paned `HORIZONTAL () in
+        paned#pack1 ~resize:false ~shrink:false (main_view :> GObj.widget);
+        paned#pack2 ~resize:true ~shrink:true (toplevel_view :> GObj.widget);
+        paned
       ]
     |> pack [ status_bar |> as_widget ];
     ]
   in
+  ignore @@ win#set_default_size ~width:1280 ~height:720;
   ignore @@ win#event#connect#delete
     ~callback:(fun _ -> Controls.trigger `QUIT; true);
   ignore @@ win#connect#destroy ~callback:GMain.quit;
@@ -266,7 +266,7 @@ let open_text_view buffer =
   in
   view#misc#modify_font_by_name !Cfg.font;
   main_view#add (view :> GObj.widget);
-  view#misc#set_size_request ~width:(!Cfg.char_width * 83) ();
+  view#set_width_request (!Cfg.char_width * 83);
   view#misc#grab_focus ();
   view
 

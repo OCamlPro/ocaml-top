@@ -117,7 +117,7 @@ let display_top_response top response =
   disp_lines (Tools.split_lines response)
 
 (* Marks characters start_char..end_char within region start_mark..end_mark *)
-let mark_error_in_source_buffer buf start_mark end_mark
+let mark_error_in_source_buffer buf start_mark end_mark _msg
     start_line start_char end_char =
   let gbuf = buf.OBuf.gbuffer in
   let start_region = gbuf#get_iter_at_mark start_mark in
@@ -129,7 +129,7 @@ let mark_error_in_source_buffer buf start_mark end_mark
   in
   let stop = min end_region (start#forward_chars (end_char - start_char)) in
   let errmark = gbuf#create_source_mark ~category:"error" start in
-  let tagmark = gbuf#create_mark ~left_gravity:false start in
+  (* let tagmark = gbuf#create_mark ~left_gravity:false start in *)
   gbuf#apply_tag OBuf.Tags.error ~start ~stop;
   let mark_remover_id = ref None in
   let callback () =
@@ -137,13 +137,12 @@ let mark_error_in_source_buffer buf start_mark end_mark
      | Some id -> gbuf#misc#disconnect id
      | None -> Tools.debug "Warning, unbound error unmarking callback";
          raise Exit);
-    let start = gbuf#get_iter_at_mark (`MARK tagmark) in
+    let start = gbuf#get_iter_at_mark errmark#coerce in
     let stop = start#forward_to_tag_toggle (Some OBuf.Tags.error) in
     gbuf#remove_tag OBuf.Tags.error ~start ~stop;
-    (* buf#remove_source_marks ~category:"error" ~start ~stop ()
-         -- may segfault sometimes (??!) *)
-    gbuf#delete_mark errmark#coerce;
-    gbuf#delete_mark (`MARK tagmark)
+    (* gbuf#remove_source_marks ~category:"error" ~start ~stop ()
+     *      (* -- may segfault sometimes (GTK2 or 3) (??!) *) *)
+    gbuf#delete_mark errmark#coerce
   in
   mark_remover_id := Some (gbuf#connect#changed ~callback)
 
@@ -199,7 +198,7 @@ let handle_response top response response_start_mark
             let _ =
               try
                 Scanf.sscanf line "Line %d, characters %d-%d:" @@
-                mark_error_in_source_buffer buf src_start_mark src_end_mark
+                mark_error_in_source_buffer buf src_start_mark src_end_mark msg2
               with Scanf.Scan_failure _ | End_of_file ->
                   Tools.debug "OCaml err message parsing failure: %s" line
             in
@@ -308,6 +307,9 @@ let create_buffer () =
     stdout_mark; ocaml_mark; prompt_mark }
 
 let show_spinner top (view: GSourceView3.source_view) =
+  (* This triggers from time to time
+Gtk-WARNING **: Allocating size to GtkImage 0x556f667effa0 without calling gtk_widget_get_preferred_width/height(). How does the code know the size to allocate?
+     (when scrolling ?) but no idea how to fix it... *)
   let spinner_mark = `MARK (duplicate_mark top.buffer top.prompt_mark) in
   let anim () =
     let (/) = Filename.concat in
