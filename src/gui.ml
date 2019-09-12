@@ -19,7 +19,7 @@ let _ = GtkMain.Main.init()
 module Controls = struct
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
            | `EXECUTE | `EXECUTE_ALL | `STOP | `RESTART | `CLEAR
-           | `SELECT_FONT | `SELECT_COLOR | `ZOOM_IN | `ZOOM_OUT | `FULLSCREEN
+           | `SELECT_COLOR | `ZOOM_IN | `ZOOM_OUT | `FULLSCREEN
            | `QUIT ]
 
   let stock (*: t -> GtkStock.id*) = function
@@ -38,7 +38,6 @@ module Controls = struct
       | `STOP -> "stop"
       | `RESTART -> "restart"
       | `CLEAR -> "clear"
-      | `SELECT_FONT -> "setup"
       | `SELECT_COLOR -> "setup"
       | `ZOOM_IN -> "zoom-in"
       | `ZOOM_OUT -> "zoom-out"
@@ -67,7 +66,6 @@ module Controls = struct
     | `STOP -> "Stop","Stop ongoing program execution [Esc]"
     | `RESTART -> "Restart","Terminate the current toplevel and start a new one"
     | `CLEAR -> "Clear","Clear the toplevel window history"
-    | `SELECT_FONT -> "Font...","Change the display font"
     | `SELECT_COLOR -> "Color theme","Switch color theme"
     | `ZOOM_IN -> "Zoom in","Make the font bigger [Ctrl +]"
     | `ZOOM_OUT -> "Zoom out","Make the font smaller [Ctrl -]"
@@ -140,7 +138,6 @@ let shortcuts = [
   ([`CONTROL], GdkKeysyms._KP_Add), `ZOOM_IN;
   ([`CONTROL], GdkKeysyms._minus),  `ZOOM_OUT;
   ([`CONTROL], GdkKeysyms._KP_Subtract), `ZOOM_OUT;
-  ([],         GdkKeysyms._F4),     `SELECT_FONT;
   ([],         GdkKeysyms._F5),     `SELECT_COLOR;
   ([],         GdkKeysyms._F11),    `FULLSCREEN;
   ([`CONTROL], GdkKeysyms._q),      `QUIT;

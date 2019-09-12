@@ -15,7 +15,7 @@
 module Controls : sig
   type t = [ `NEW | `OPEN | `SAVE | `SAVE_AS
            | `EXECUTE | `EXECUTE_ALL | `STOP | `RESTART | `CLEAR
-           | `SELECT_FONT | `SELECT_COLOR | `ZOOM_IN | `ZOOM_OUT | `FULLSCREEN
+           | `SELECT_COLOR | `ZOOM_IN | `ZOOM_OUT | `FULLSCREEN
            | `QUIT ]
   val bind: t -> (unit -> unit) -> unit
   (* val trigger: t -> unit *)
