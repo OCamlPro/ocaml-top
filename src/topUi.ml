@@ -199,8 +199,11 @@ let handle_response top response response_start_mark
               try
                 Scanf.sscanf line "Line %d, characters %d-%d:" @@
                 mark_error_in_source_buffer buf src_start_mark src_end_mark msg2
+              with Scanf.Scan_failure _ | End_of_file -> try
+                Scanf.sscanf line "Line %d:" @@ fun li ->
+                mark_error_in_source_buffer buf src_start_mark src_end_mark msg2 li 0 (-1)
               with Scanf.Scan_failure _ | End_of_file ->
-                  Tools.debug "OCaml err message parsing failure: %s" line
+                Tools.debug "OCaml err message parsing failure: %s" line
             in
             let stop =
               iter#forward_lines (List.length msg1 + List.length msg2)
