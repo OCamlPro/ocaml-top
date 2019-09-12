@@ -3,7 +3,7 @@
 
   <Product Name='OCaml-Top' Id='*'
            UpgradeCode='6b5569c2-58f9-4555-bd4c-13ce398afaa2'
-           Language='1033' Codepage='1252' Version='1.1.5'
+           Language='1033' Codepage='1252' Version='1.2.0'
            Manufacturer='OCamlPro'>
 
     <Package Id='*' Keywords='OCaml toplevel development IDE'

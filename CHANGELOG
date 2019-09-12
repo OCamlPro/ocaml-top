@@ -1,3 +1,12 @@
+## 1.2.0
+* Port to opam 2.0
+* Port to dune
+* Port to Lablgtk3
+* Support OCaml 4.08.0 (esp. error messages)
+* Re-enabled, and improved, automatic completion (Lablgtk3 seems to have fixed it!)
+* Removed the font selection dialog (Lablgtk3 seems to no longer bind it; not that it's really important...)
+* Some small fixes
+
 ## 1.1.5
 * Fixes for -safe-string and OCaml 4.06.0
 
