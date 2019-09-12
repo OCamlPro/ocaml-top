@@ -27,20 +27,23 @@ end
 module Dialogs : sig
   type 'a cps = ('a -> unit) -> unit
 
-  val choose_file : [< `OPEN | `SAVE ] -> ?cancel:(unit -> unit) -> string cps
+  val choose_file :
+    parent:#GWindow.window_skel ->
+    [< `OPEN | `SAVE ] -> ?cancel:(unit -> unit) -> string cps
 
-  val error : title:string -> string -> unit
+  val error :
+    parent:#GWindow.window_skel ->
+    title:string -> string -> unit
 
-  val quit : string option
+  val quit :
+    parent:#GWindow.window_skel ->
+    string option
     -> save:(unit -> unit cps) -> quit:(unit -> unit)
     -> unit
 
-  val confirm : title:string -> string -> ?no:(unit -> unit) -> unit cps
-
-  val choose_font :
-    GSourceView3.source_view -> GSourceView3.source_view ->
-    on_font_change:(unit -> unit) -> unit
-    -> unit
+  val confirm :
+    parent:#GWindow.window_skel ->
+    title:string -> string -> ?no:(unit -> unit) -> unit cps
 end
 
 val main_window : unit -> GWindow.window

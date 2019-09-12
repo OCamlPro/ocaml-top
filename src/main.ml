@@ -16,69 +16,69 @@ open Tools.Ops
 
 module OBuf = OcamlBuffer
 
-let rec protect ?(loop=false) ?(err = fun () -> ()) f x =
+let rec protect parent ?(loop=false) ?(err = fun () -> ()) f x =
   try
     f x
   with
   | Tools.Recoverable_error message ->
-      Gui.Dialogs.error ~title:"Error" message;
-      if loop then protect ~loop f x
+      Gui.Dialogs.error ~parent ~title:"Error" message;
+      if loop then protect parent ~loop f x
       else () |> err
   | exc ->
-      Gui.Dialogs.error ~title:"Fatal error"
+      Gui.Dialogs.error ~parent ~title:"Fatal error"
         (Printf.sprintf"<b>Uncaught exception:</b>\n\n%s"
            (Printexc.to_string exc));
       exit 10
 
 module BufActions = struct
-  let load_file k name =
-    protect (Tools.File.load name) @@ fun contents ->
+  let load_file parent k name =
+    protect parent (Tools.File.load name) @@ fun contents ->
       OBuf.create ~name ~contents ()
       |> k
 
-  let confirm_discard k buf =
+  let confirm_discard parent k buf =
     if OBuf.is_modified buf then
-      Gui.Dialogs.confirm ~title:"Please confirm"
+      Gui.Dialogs.confirm ~parent ~title:"Please confirm"
         (Printf.sprintf "Discard your changes to %s ?"
          @@ OBuf.filename_default ~default:"the current file" buf)
         ~no:(fun () -> ())
       @@ k
     else k ()
 
-  let load_dialog k =
-    confirm_discard @@ fun () ->
-      Gui.Dialogs.choose_file `OPEN
-      @@ load_file
+  let load_dialog parent k =
+    confirm_discard parent @@ fun () ->
+      Gui.Dialogs.choose_file ~parent `OPEN
+      @@ load_file parent
       @@ k
 
-  let save_to_file ~ask k buf =
+  let save_to_file parent ~ask k buf =
     let save name =
       let contents = OBuf.contents buf in
-      protect (Tools.File.save contents name) @@ fun () ->
+      protect parent (Tools.File.save contents name) @@ fun () ->
         OBuf.set_filename buf name;
         OBuf.unmodify buf
     in
     match OBuf.filename buf with
     | Some name when ask = false -> save name |> k
     | _ ->
-        Gui.Dialogs.choose_file `SAVE @@ fun name ->
+        Gui.Dialogs.choose_file ~parent `SAVE @@ fun name ->
           let name =
             if String.contains name '.' then name else name ^ ".ml"
           in
           if Sys.file_exists name then
-            Gui.Dialogs.confirm ~title:"Overwrite ?"
+            Gui.Dialogs.confirm ~parent ~title:"Overwrite ?"
               (Printf.sprintf "File %s already exists. Overwrite ?" name)
             @@ fun () -> save name |> k
           else
             save name |> k
 
-  let new_empty k =
-    confirm_discard @@ fun () -> OBuf.create () |> k
+  let new_empty parent k =
+    confirm_discard parent @@ fun () -> OBuf.create () |> k
 
   let quit main_window buf =
     if OBuf.is_modified buf then
-      Gui.Dialogs.quit (OBuf.filename buf)
-        ~save:(fun () k -> save_to_file ~ask:false k buf)
+      Gui.Dialogs.quit ~parent:main_window (OBuf.filename buf)
+        ~save:(fun () k -> save_to_file main_window ~ask:false k buf)
         ~quit:(fun () -> main_window#destroy ())
     else main_window#destroy ()
 end
@@ -111,11 +111,6 @@ module TopActions = struct
 end
 
 module UIActions = struct
-  let select_font top_view src_view _top buf =
-    Gui.Dialogs.choose_font src_view top_view ~on_font_change:(fun () ->
-      OBuf.trigger_reindent buf OBuf.reindent_full)
-      ()
-
   let zoom value top_view src_view top buf =
     let font = GPango.font_description_from_string !Cfg.font in
     let size = max 6 @@ min 24 @@ font#size / Pango.scale +  value in
@@ -157,11 +152,11 @@ let init ?name ?contents main_window =
     Completion.setup buf !view_ref Gui.index_msg
   in
   let nil () = () in
-  Gui.Controls.bind `NEW     @@ get_buf @@ BufActions.new_empty @@ set_buf;
-  Gui.Controls.bind `OPEN    @@ get_buf @@ BufActions.load_dialog @@ set_buf;
-  Gui.Controls.bind `SAVE_AS @@ get_buf @@ BufActions.save_to_file ~ask:true
+  Gui.Controls.bind `NEW     @@ get_buf @@ BufActions.new_empty main_window @@ set_buf;
+  Gui.Controls.bind `OPEN    @@ get_buf @@ BufActions.load_dialog main_window @@ set_buf;
+  Gui.Controls.bind `SAVE_AS @@ get_buf @@ BufActions.save_to_file main_window ~ask:true
   @@ nil;
-  Gui.Controls.bind `SAVE    @@ get_buf @@ BufActions.save_to_file ~ask:false
+  Gui.Controls.bind `SAVE    @@ get_buf @@ BufActions.save_to_file main_window ~ask:false
   @@ nil;
   Gui.Controls.bind `QUIT    @@ get_buf @@ BufActions.quit main_window;
   (* Initialize the top-level buffer and actions *)
@@ -179,7 +174,6 @@ let init ?name ?contents main_window =
   let get_view f () = get_top (f top_view !view_ref) () in
   Gui.Controls.bind `ZOOM_IN @@ get_view @@ UIActions.zoom (+1);
   Gui.Controls.bind `ZOOM_OUT @@ get_view @@ UIActions.zoom (-1);
-  Gui.Controls.bind `SELECT_FONT @@ get_view @@ UIActions.select_font;
   Gui.Controls.bind `SELECT_COLOR @@ get_view @@ UIActions.switch_theme;
   Gui.Controls.bind `FULLSCREEN @@ get_view @@ UIActions.fullscreen main_window;
   Gui.set_font !view_ref top_view !Cfg.font;
@@ -280,23 +274,23 @@ let _ =
     match !file with
     | Some name ->
         let rec load name =
-          protect (Tools.File.load name)
+          protect main_window (Tools.File.load name)
             ~err:(fun () ->
-                Gui.Dialogs.choose_file `OPEN
+                Gui.Dialogs.choose_file ~parent:main_window `OPEN
                   ~cancel:(fun () ->
-                      protect init main_window;
+                      protect main_window init main_window;
                       main_window#show())
                 @@ load)
           @@ fun contents ->
-            protect (init ~name ~contents) main_window;
+            protect main_window (init ~name ~contents) main_window;
             main_window#show();
         in
         load name
     | None ->
-        (protect init main_window; main_window#show())
+        (protect main_window init main_window; main_window#show())
   in
   ignore @@ GMain.Idle.add (fun () -> create (); false);
   Sys.set_signal Sys.sigint
     (Sys.Signal_handle (fun _ -> main_window#destroy ()));
-  protect ~loop:true GMain.main ();
+  protect main_window ~loop:true GMain.main ();
   Tools.debug "Goodbye !"

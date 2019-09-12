@@ -322,13 +322,14 @@ module Dialogs = struct
   (* Return type of a function that would return 'a, but is in CPS form *)
   type 'a cps = ('a -> unit) -> unit
 
-  let choose_file action ?(cancel = fun () -> ()) k =
+  let choose_file ~parent action ?(cancel = fun () -> ()) k =
     let title, button_label = match action with
       | `OPEN -> "Please choose file to load", "Load"
       | `SAVE -> "Please choose file to save to", "Save"
     in
     let dialog =
       GWindow.file_chooser_dialog
+        ~parent ~modal:true
         ~title
         ~action:(action :> GtkEnums.file_chooser_action) ()
     in
@@ -349,8 +350,9 @@ module Dialogs = struct
     ignore @@ dialog#connect#response ~callback;
     dialog#show ()
 
-  let error ~title message =
+  let error ~parent ~title message =
     let dialog = GWindow.message_dialog
+      ~parent ~modal:true
       ~title
       ~message
       ~use_markup:true
@@ -362,12 +364,12 @@ module Dialogs = struct
     ignore @@ dialog#run ();
     dialog#destroy ()
 
-  let quit filename ~save ~quit =
+  let quit ~parent filename ~save ~quit =
     let filename = match filename with
       | Some f -> Printf.sprintf "File %S" f
       | None -> "Current buffer"
     in
-    let dialog = GWindow.dialog ~title:"Quit" () in
+    let dialog = GWindow.dialog ~parent ~modal:true ~title:"Quit" () in
     let txt =
       let frame = GBin.frame ~border_width:40 ~shadow_type:`NONE () in
       frame#add
@@ -386,8 +388,9 @@ module Dialogs = struct
       | `CANCEL | `DELETE_EVENT -> dialog#destroy ());
     dialog#show ()
 
-  let confirm ~title message ?(no = fun () -> ()) k =
+  let confirm ~parent ~title message ?(no = fun () -> ()) k =
     let dialog = GWindow.message_dialog
+      ~parent ~modal:true
       ~title
       ~message
       ~use_markup:true
@@ -399,21 +402,4 @@ module Dialogs = struct
         | `YES -> dialog#destroy () |> k
         | `NO | `DELETE_EVENT -> dialog#destroy () |> no);
     dialog#show ()
-
-  let choose_font
-      (src_view:GSourceView3.source_view) (top_view:GSourceView3.source_view)
-      ~on_font_change
-      ()
-    = ()
-    (* let dialog = GMisc.font_selection ~font_name:!Cfg.font () in
-     * ignore @@ dialog# ~callback:(function
-     *   | `APPLY ->
-     *       set_font src_view top_view dialog#selection#font_name;
-     *       on_font_change ()
-     *   | `OK ->
-     *       set_font src_view top_view dialog#selection#font_name;
-     *       dialog#destroy ();
-     *       on_font_change ()
-     *   | `CANCEL | `DELETE_EVENT -> dialog#destroy ());
-     * dialog#show () *)
 end
