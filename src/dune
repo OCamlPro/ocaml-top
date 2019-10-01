@@ -1,14 +1,18 @@
 (library
  (name sigint_win)
- (enabled_if (= %{os_type} win32))
+ (enabled_if (= %{os_type} Win32))
  (c_names sigint_win)
  (modules))
 
 (library
  (name sigint_unix)
- (enabled_if (<> %{os_type} win32))
+ (enabled_if (<> %{os_type} Win32))
  (c_names sigint_unix)
  (modules))
+
+(rule
+ (targets test)
+ (action (with-stdout-to test (echo %{os_type}))))
 
 (library
  (name top)

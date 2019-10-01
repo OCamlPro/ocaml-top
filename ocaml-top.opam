@@ -2,17 +2,17 @@ opam-version: "2.0"
 version: "1.2.0"
 maintainer: "contact@ocamlpro.com"
 authors: "Louis Gesbert <louis.gesbert@ocamlpro.com>"
-license: "GPL-3"
+license: "GPL-3.0-only"
 tags: ["org:ocamlpro" "gui" "teaching" "toplevel"]
 homepage: "http://www.typerex.org/ocaml-top.html"
 bug-reports: "https://github.com/OCamlPro/ocaml-top/issues"
 depends: [
   "ocaml" {>= "4.02.0"}
   "dune" {>= "1.10"}
-  "ocp-pp"
-  "lablgtk" {>= "2.16.0"}
-  "conf-gtksourceview" {= "2"}
-  "ocp-indent" {>= "1.4.0"}
+  "ocp-pp" {build}
+  "lablgtk3"
+  "lablgtk3-sourceview3"
+  "ocp-indent" {>= "1.8.1"}
   "ocp-index" {>= "1.0.0"}
 ]
 build: ["dune" "build" "-p" name]
@@ -20,3 +20,10 @@ dev-repo: "git+https://github.com/OCamlPro/ocaml-top.git"
 url {
   src: "git+file:///home/lg/ocamlpro/ocaml-top#master"
 }
+synopsis: "The OCaml interactive editor for education"
+description: """
+OCaml-top is a GTK-based editor coupled with an OCaml top-level, providing
+straight forward evaluation controls, built-in syntax coloring and forced visual
+indentation. It's cross-platform and specially tailored for students and lab
+sessions.
+"""

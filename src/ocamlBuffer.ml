@@ -198,6 +198,9 @@ let reindent_max r1 r2 = match r1, r2 with
     (Reindent_line l2 | Reindent_after l2 | Reindent_delayed l2)
     -> Reindent_after (min l1 l2)
 
+let indent_config =
+  IndentConfig.update_from_string IndentConfig.default "apprentice"
+
 let reindent t =
   let buf = t.gbuffer in
   (* ensure buffer ends with a newline *)
@@ -223,10 +226,11 @@ let reindent t =
       if IndentBlock.is_in_comment block then
         last, line, col + String.length txt, block_marks, end_block_marks
       else
-        let last_txt, last_line, last_col = last in
+        let last_block, last_txt, last_line, last_col = last in
         let is_toplevel =
-          IndentBlock.is_at_top block && block <> IndentBlock.empty ||
-          last_txt = ";;"
+          block != last_block &&
+          (IndentBlock.is_at_top block ||
+           last_txt = ";;" && IndentBlock.no_parents block)
         in
         let end_block_marks =
           if is_toplevel && block_marks <> [] then
@@ -247,8 +251,9 @@ let reindent t =
           else block_marks
         in
         let last =
-          if txt = ";;" && last_txt <> ";;" then txt, last_line, last_col
-          else txt, line, col + String.length txt
+          if txt = ";;" && last_txt <> ";;"
+          then block, txt, last_line, last_col
+          else block, txt, line, col + String.length txt
         in
         last, line, col + String.length txt, block_marks, end_block_marks
     | IndentPrinter.Newline ->
@@ -287,8 +292,7 @@ let reindent t =
   let output = {
     IndentPrinter.
     debug = false;
-    config =
-      IndentConfig.update_from_string IndentConfig.default "apprentice";
+    config = indent_config;
     in_lines;
     indent_empty = true;
     adaptive = false;
@@ -302,8 +306,9 @@ let reindent t =
     buf#remove_source_marks ~category:"end_block_mark"
       ~start:buf#start_iter ~stop:buf#end_iter ()
   in
-  let init = ";;", 1, 0 in
-  let (_txt, last_line, last_col), _line, _col, block_marks, end_block_marks =
+  let init = IndentBlock.empty, ";;", 1, 0 in
+  let (_block, _txt, last_line, last_col),
+      _line, _col, block_marks, end_block_marks =
     IndentPrinter.proceed output input IndentBlock.empty (init,1,0,[],[])
   in
   let end_block_marks =
