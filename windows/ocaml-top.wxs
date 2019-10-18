@@ -17,7 +17,11 @@
     <Directory Id='TARGETDIR' Name='SourceDir'>
       <Directory Id='ProgramFilesFolder' Name='PFiles'>
         <Directory Id='INSTALLDIR' Name='ocaml-top'>
-          <Directory Id="DATADIR" Name="data" />
+          <Directory Id="data" Name="data" />
+          <Directory Id="doc" Name="doc" />
+          <Directory Id="lib" Name="lib" />
+          <Directory Id="share" Name="share" />
+          <Directory Id="bin" Name="bin" />
           <Component Id='MainExecutable'
                      Guid='0245f0cb-63b7-40ac-8030-bc369e261f32'>
             <File Id='icon.ico' Name='icon.ico' DiskId='1'
@@ -74,10 +78,17 @@
       <ComponentRef Id='ProgramMenuDir' />
       <Feature Id='data_feat' Title='data files' Level='1'>
         <ComponentGroupRef Id='data' />
+        <ComponentGroupRef Id='doc' />
+        <ComponentGroupRef Id='share' />
       </Feature>
-      <Feature Id='dlls_feat' Title='required dlls' Level='1'>
+      <Feature Id='ocaml_feat' Title='minimal OCaml toplevel' Level='1'>
+        <ComponentGroupRef Id='lib' />
+        <ComponentGroupRef Id='bin' />
+        <Condition Level='1'>INSTALL_TOPLEVEL</Condition>
+      </Feature>
+      <!-- Feature Id='dlls_feat' Title='required dlls' Level='1'>
         <ComponentGroupRef Id='dlls' />
-      </Feature>
+      </Feature -->
     </Feature>
     <Icon Id='icon.ico' SourceFile="ocaml-top\data\logo.ico" />
     <Property Id="ARPPRODUCTICON" Value="icon.ico" />
@@ -87,8 +98,8 @@
 
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
 
-    <WixVariable Id="WixUIBannerBmp" Value="..\windows\bannrbmp.bmp" />
-    <WixVariable Id="WixUIDialogBmp" Value="..\windows\dlgbmp.bmp" />
+    <WixVariable Id="WixUIBannerBmp" Value="bannrbmp.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="dlgbmp.bmp" />
 
     <UI Id="WixUI_InstallDir_NoLicense">
       <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
@@ -113,6 +124,7 @@
       <Publish Dialog="BrowseDlg" Control="OK" Event="SpawnDialog" Value="InvalidDirDlg" Order="4"><![CDATA[WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
 
       <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
 
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg">NOT Installed</Publish>
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH</Publish>
@@ -139,6 +151,10 @@
     </UI>
 
     <UIRef Id="WixUI_Common" />
+
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Run ocaml-top" />
+    <Property Id="WixShellExecTarget" Value="[#ocaml_top.exe]" />
+    <CustomAction Id="LaunchApplication" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
 
   </Product>
 </Wix>

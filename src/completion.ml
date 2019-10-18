@@ -240,6 +240,7 @@ let input_line ic =
 let setup buf (view: GSourceView3.source_view) message =
   let index =
     let dirs = [!Cfg.datadir] in
+    let dirs = match Cfg.stdlib_dir with None -> dirs | Some d -> d::dirs in
     let dirs =
       try
         let ic = Unix.open_process_in "ocamlc -where" in

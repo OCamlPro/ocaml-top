@@ -38,13 +38,14 @@ let is_unix = match os with
   | Linux | OSX | Other -> true
   | Windows -> false
 
+let ( / ) = Filename.concat
+
+let program_dir =
+  let dir = Filename.dirname Sys.executable_name in
+  if Filename.is_relative dir then Sys.getcwd () / dir
+  else dir
+
 let datadir =
-  let (/) = Filename.concat in
-  let program_dir =
-    let dir = Filename.dirname Sys.executable_name in
-    if Filename.is_relative dir then Sys.getcwd () / dir
-    else dir
-  in
   let default =
     if is_unix && Filename.basename program_dir = "bin" then
       Filename.dirname program_dir / "share" / "ocaml-top"
@@ -68,7 +69,12 @@ let char_width = ref 8 (* Computed once the text view is initialized *)
 
 let theme = ref "dark"
 
-let ocaml_cmd, ocaml_opts =
-  if Sys.os_type = "Win32"
-  then ref "ocamlrun", ref ["ocaml"]
-  else ref "ocaml", ref []
+let ocaml_cmd, ocaml_opts, stdlib_dir =
+  if Sys.os_type <> "Win32"
+  then ref "ocaml", ref [], None
+  else if Sys.command "ocamlrun ocaml -vnum" = 0
+  then ref "ocamlrun", ref ["ocaml"], None
+  else
+  ref (program_dir / "bin" / "ocamlrun"),
+  ref [program_dir / "bin" / "ocaml"; "-I"; program_dir / "lib" / "ocaml"],
+  Some (program_dir / "lib" / "ocaml")
