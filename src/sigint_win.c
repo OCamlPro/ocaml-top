@@ -84,9 +84,9 @@ value send_sigint(value pid_val)
   if (!GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0))
     ErrorMsg(TEXT("GenerateConsoleCtrlEvent"));
 
-  // restore ctrl_c behaviour
-  if (!SetConsoleCtrlHandler(NULL, FALSE))
-    ErrorMsg(TEXT("SetConsoleCtrlHandler"));
+  /* // restore ctrl_c behaviour
+   * if (!SetConsoleCtrlHandler(NULL, FALSE))
+   *   ErrorMsg(TEXT("SetConsoleCtrlHandler")); */
 
   CAMLreturn (Val_unit);
 }
@@ -96,6 +96,11 @@ value terminate(value pid_val)
   CAMLparam1 (pid_val);
 
   HANDLE pid = (HANDLE) Long_val(pid_val);
+
+  // restore ctrl_c behaviour
+  /* printf("Restore handler\n"); */
+  if (!SetConsoleCtrlHandler(NULL, FALSE))
+    /* ErrorMsg(TEXT("SetConsoleCtrlHandler")) */;
 
   if (!TerminateProcess(pid,137))
     /* ErrorMsg(TEXT("TerminateProcess")) */;
