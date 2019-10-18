@@ -22,8 +22,18 @@
    (select sigint from (sigint_win -> top)
                        (sigint_unix -> top))))
 
+;; Is there a better way to do this ? I just want to add '-ccopt -lpthread'
+;; on Windows...
+(library
+ (name dummy_link_flag)
+ (modules )
+ (wrapped false)
+ (enabled_if (= %{os_type} Win32))
+ (flags -ccopt -lpthread))
+
 (executable
  (name main)
  (modules ocamlBuffer completion topUi gui main)
  (public_name ocaml-top)
- (libraries top threads ocp-indent.lib ocp-index.lib lablgtk3 lablgtk3-sourceview3))
+ (libraries top threads ocp-indent.lib ocp-index.lib lablgtk3 lablgtk3-sourceview3
+   (select dummy from (dummy_link_flag -> dummy_link_flag) (-> dummy_link_flag))))
