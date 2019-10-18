@@ -162,19 +162,7 @@ let start schedule response_handler status_hook =
   let ocaml_pid =
     (* Run ocamlrun rather than ocaml directly, otherwise another process is
        spawned and, on windows, that messes up our process handling *)
-    let ocaml_init =
-      try
-        [ "-init"; List.find Sys.file_exists [
-              Filename.concat (Sys.getcwd ()) ".ocamlinit";
-              Filename.concat (Sys.getenv "HOME") ".ocamlinit";
-            ]
-        ]
-      with Not_found -> []
-    in
-    let args = !Cfg.ocaml_cmd :: !Cfg.ocaml_opts
-               @ [ "-init"; Filename.concat !Cfg.datadir "toplevel_init.ml" ]
-               @ ocaml_init
-    in
+    let args = !Cfg.ocaml_cmd :: !Cfg.ocaml_opts in
     Tools.debug "Running %S..." (String.concat " " args);
     try
       Unix.create_process_env !Cfg.ocaml_cmd (Array.of_list args) env
