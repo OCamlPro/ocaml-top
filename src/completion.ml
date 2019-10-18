@@ -256,7 +256,7 @@ let setup buf (view: GSourceView3.source_view) message =
         (Printexc.to_string e);
       LibIndex.load []
   in
-  if true || Tools.debug_enabled then (
+  if Cfg.os <> Windows || Tools.debug_enabled then (
     (* Enable only for debug at the moment:
        completion widgets can trigger segfaults *)
     setup_completion index buf view
