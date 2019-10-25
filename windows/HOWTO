@@ -1,0 +1,176 @@
+#!/bin/bash -ue
+
+# This is a summary of what you need to do to get a MS Windows build compiled
+# and packaged.
+#
+# The approach is based on cross-compilation using:
+#  * dune (needs my patches 3e1ed95 and 037e1b5 at the moment, they can be found in my fork at https://github.com/AltGr/dune)
+#    we make a lot of use of the dune workspace to cross-compile all the OCaml dependencies in a go.
+#  * the repository at https://github.com/ocaml-cross/opam-cross-windows configured in opam
+#  * MXE for the mingw toolchain. Needs my package for gtksourceview3 at the moment (https://github.com/mxe/mxe/pull/2423)
+#  * WIX, on Windows, for generating the .msi package (https://github.com/wixtoolset/wix3/releases/download/wix3104rtm/wix310.exe)
+
+# apt remove flexdll (breaks stuff if installed)
+
+MXEDIR=$PWD/../mxe
+TOOLCHAIN=x86_64-w64-mingw32.static.posix
+
+# Not certain the `.posix` part is required, but I don't want to recompile
+# everything just to check
+
+
+
+###########################
+### GETTING THE C STUFF ###
+###########################
+
+git clone https://github.com/mxe/mxe.git $MXEDIR
+make -C $MXEDIR MXE_TARGETS=$TOOLCHAIN gtk3 # m4 pkg-config
+make -C $MXEDIR MXE_TARGETS=$TOOLCHAIN gtksourceview3 # once my contribution is merged
+
+
+
+######################################
+### GETTING THE OCAML SWITCH READY ###
+######################################
+
+opam sw cr . --repos=default,windows=git://github.com/ocaml-cross/opam-cross-windows 4.08.0
+
+# In order for the required env to be always set consistently, I edited
+# _opam/.opam-switch/switch-config to add:
+cat >>_opam/.opam-switch/switch-config <<EOF
+setenv: [
+  [ TOOLPREF64 = "$TOOLPREF64" ]
+  [ PATH := "$MXEDIR/usr/bin/" ]
+]
+EOF
+eval $(opam env) # if you don't have the shell hooks
+# that way I don't need to remember the correct setenvs
+
+# I think this has been fixed now but I had to patch ocaml-windows64:
+#opam pin ocaml-windows64 4.08.0 --edit -->
+# add `["sed" "-i" "s/-warn-error A//" "stdlib/Makefile"]` first in `build:`
+opam install ocaml-windows64
+
+pin dune: needs patches 3e1ed95 and 037e1b5 in dune-configurator
+
+
+
+########################################
+### GETTING ALL THE OCAML DEPS READY ###
+########################################
+
+DEPS="ocp-indent ocp-index re cmdliner cairo2"
+for d in $DEPS; do opam source $d; done
+
+opam source lablgtk3 --dev # at 98d53ed
+(cd lablgtk3 && patch -p1) <<EOF
+--- a/src/dune
++++ b/src/dune
+@@ -139,6 +139,7 @@
+  (public_name lablgtk3-sourceview3)
+  (flags :standard -w -6-7-27-32-33-34-36)
+  (wrapped false)
++ (no_dynlink)
+  (modules_without_implementation
+    gtkSourceView3_types)
+  (modules
+EOF
+
+# (I also have this patch but don't think it's useful:)
+# --- a/src/dune_config.ml
+# +++ b/src/dune_config.ml
+# @@ -32,11 +32,22 @@ let query_pkg p ~package =
+#  let gen_pkg p ~package ~version =
+#    let file kind = kind ^ "-" ^ package ^ ".sexp" in
+#    let package, extra_flags = platform_subst p ~package in
+# -  let package =
+# -    Option.cata ~f:(fun version -> Format.sprintf "%s >= %s" package version) package version in
+# -  let c_g = query_pkg p ~package in
+# -  C.Flags.write_sexp (file "cflag") @@ c_g.C.Pkg_config.cflags @ extra_flags;
+# -  C.Flags.write_sexp (file "clink") c_g.C.Pkg_config.libs
+# +  let c_g =
+# +    let expr = match version with
+# +      | None -> package
+# +      | Some v -> Printf.sprintf "%s >= %s" package v
+# +    in
+# +    Result.get_ok (C.Pkg_config.query_expr_err p ~package ~expr)
+# +  in
+# +  C.Flags.write_sexp (file "cflag") (c_g.C.Pkg_config.cflags
+# +                                     |> List.map (fun s -> match Stdune.String.drop_prefix s ~prefix:"-Wl,-l" with
+# +                                         | Some s -> "-l" ^ s
+# +                                         | None -> s));
+# +  C.Flags.write_sexp (file "clink") (c_g.C.Pkg_config.libs
+# +                                     |> List.map (fun s -> match Stdune.String.drop_prefix s ~prefix:"-Wl,-l" with
+# +                                         | Some s -> "-l" ^ s
+# +                                         | None -> s))
+# +
+
+
+
+###############################
+### SOME DUNE CONFIGURATION ###
+###############################
+
+# Let's configure our cross-compiling workspace...
+cat >dune-workspace <<EOF
+(lang dune 1.0)
+(profile release)
+(context
+  (default
+    (targets native windows)))
+(env TOOLPREF64=$TOOLPREF64
+     PATH=$PATH)
+EOF
+
+# Alternatively, just use the exported vars, and add `-x windows
+# --profile=release` to the commands instead
+
+
+
+##############
+### BUILD! ###
+##############
+
+dune build --ignore-promoted-rules ocaml-top-windows.install
+# --ignore-promoted-rules is required for lablgtk3 to build reliably atm
+
+
+
+####################################################################
+### TEST (optional, skip unless you have specific stuff to test) ###
+####################################################################
+
+# Fire up some Windows instance. Assuming user `IEUser` and mounts of the
+# ocaml-top srcdir at \\VBOXSRV\ocaml-top, of the prefix with the cross-compiled
+# `ocaml` at `C:\Users\IEUser\Desktop\windows-sysroot\`
+cd \\VBOXSRV\ocaml-top\_build\install\default.windows
+$env:Path += ";C:\Users\IEUser\Desktop\windows-sysroot\bin"
+$env:CAMLDIR += "C:\Users\IEUser\Desktop\windows-sysroot\lib\ocaml" # ?? useful ?
+
+.\bin\ocaml-top.exe loop.ml -datadir .\share\ocaml-top\ -ocaml ocamlrun --- ocaml -I C:\Users\IEUser\Desktop\windows-sysroot\lib\ocaml
+
+
+
+###############
+### PACKAGE ###
+###############
+
+# On Linux
+# This creates the bundle as a directory `windows.inst`, with all the resources needed
+
+make windows.inst # creates a clean inst dir below windows.inst/ocaml-top
+make win-inst-ocaml # bundles a minimal ocaml toplevel in the same subdir
+
+# Fire up some Windows instance
+# Get WIX and install it
+# https://github.com/wixtoolset/wix3/releases/download/wix3104rtm/wix310.exe
+# ** 3.11 does NOT work **, get 3.10 The .bat file assumes the default
+# (might need dotnet from https://dotnet.microsoft.com/download/thank-you/net48, but that should be auto)
+# installation directory
+
+# 1. copy or mount the `windows.inst` directory generated above
+# 2. run CMD (<Win>-x r cmd <RET>)
+cd ...\windows.inst
+.\make_msi.bat
+# 3. test the generated `ocaml_top.msi` installer and publish.
