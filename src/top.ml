@@ -188,7 +188,7 @@ let start schedule response_handler status_hook =
   } in
   let event_receive = receive_event t response_handler in
   let receive_from_main_thread () =
-    schedule (fun () ->
+    ignore @@ schedule (fun () ->
       assert (Thread.self () = main_thread);
       Event.sync event_receive)
   in

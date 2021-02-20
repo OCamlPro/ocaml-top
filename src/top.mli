@@ -40,7 +40,7 @@ type response =
     @param status_change_hook will be called whenever the status changes
 *)
 val start :
-  ((unit -> unit) -> unit) ->
+  ((unit -> unit) -> 'a) ->
   (response -> unit) ->
   (status -> unit) ->
   t
