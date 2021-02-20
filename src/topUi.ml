@@ -339,6 +339,8 @@ let rec top_start ~init ~status_change_hook top =
             "Error in toplevel interaction: %s%!" (Tools.printexc e);
           raise e
   in
+  (* fixing the type of schedule to (unit -> unit) -> unit) *)
+  let schedule f = ignore @@ schedule f in
   let resp_handler = function
     | Top.Message m -> display_top_response top m
     | Top.User u -> display_stdout top u

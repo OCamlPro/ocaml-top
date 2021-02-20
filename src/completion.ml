@@ -178,7 +178,7 @@ let setup_completion index buf (view: GSourceView3.source_view) =
     (* ref needed for bootstrap (!) *)
     let provider_ref = ref None in
     let custom_provider : GSourceView3.custom_completion_provider =
-      object (self)
+      object
         method name = "Available library values"
         method icon =  None
         method populate context =
@@ -194,7 +194,7 @@ let setup_completion index buf (view: GSourceView3.source_view) =
         method activation = [`USER_REQUESTED] (* ;`INTERACTIVE] *)
         method info_widget _propal = None
         method update_info _propal _info = ()
-        method start_iter context _propal iter = false
+        method start_iter _context _propal _iter = false
         method activate_proposal propal iter =
           let pfxlen = iter#offset - (completion_start_iter iter)#offset in
           let text = propal#text in

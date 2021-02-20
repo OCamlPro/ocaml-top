@@ -23,8 +23,8 @@ type top = private {
 val create_buffer: unit -> top
 
 val top_start:
-  init:(unit -> 'a) ->
-  status_change_hook:(Top.status -> 'b) ->
+  init:(unit -> unit) ->
+  status_change_hook:(Top.status -> unit) ->
   top
   -> unit
 
