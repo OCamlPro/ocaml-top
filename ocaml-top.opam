@@ -9,7 +9,6 @@ bug-reports: "https://github.com/OCamlPro/ocaml-top/issues"
 depends: [
   "ocaml" {>= "4.02.0"}
   "dune" {>= "1.10"}
-  "ocp-pp" {build}
   "lablgtk3"
   "lablgtk3-sourceview3"
   "ocp-indent" {>= "1.8.1"}
