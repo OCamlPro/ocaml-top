@@ -12,11 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-module Ops: sig
-  val (@@) : ('a -> 'b) -> 'a -> 'b
-  val (|>) : 'a -> ('a -> 'b) -> 'b
-end
-
 val debug_enabled: bool
 
 val debug: ('a, out_channel, unit) format -> 'a

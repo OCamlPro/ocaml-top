@@ -12,8 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Tools.Ops
-
 let _ = GtkMain.Main.init()
 
 module Controls = struct
@@ -45,8 +43,8 @@ module Controls = struct
       | `QUIT -> "quit"
     in
     let file =
-      let (/) = Filename.concat in
-      !Cfg.datadir / "icons" / name ^ ".png"
+      let (//) = Filename.concat in
+      !Cfg.datadir // "icons" // name ^ ".png"
     in
     let pixbuf = GdkPixbuf.from_file_at_size file ~width:22 ~height:22 in
     let img = GMisc.image ~pixbuf () in

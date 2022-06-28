@@ -12,12 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-module Ops = struct
-  external (@@) : ('a -> 'b) -> 'a -> 'b = "%apply"
-  external (|>) : 'a -> ('a -> 'b) -> 'b = "%revapply"
-end
-include Ops
-
 let debug_enabled =
   try match Sys.getenv "OCP_DEBUG" with "" | "0" -> false | _ -> true
   with Not_found -> false

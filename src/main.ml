@@ -12,8 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Tools.Ops
-
 module OBuf = OcamlBuffer
 
 let rec protect parent ?(loop=false) ?(err = fun () -> ()) f x =
