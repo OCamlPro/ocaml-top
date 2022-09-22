@@ -249,11 +249,11 @@ let setup buf (view: GSourceView3.source_view) message =
       with Unix.Unix_error _ | Sys_error _ -> dirs
     in
     try
-      LibIndex.load (LibIndex.Misc.unique_subdirs dirs)
+      LibIndex.load ~qualify:true (LibIndex.Misc.unique_subdirs dirs)
     with e ->
       Tools.debug "Exception during LibIndex.load: %s"
         (Printexc.to_string e);
-      LibIndex.load []
+      LibIndex.load ~qualify:true []
   in
   if Cfg.os <> Windows || Tools.debug_enabled then (
     (* Enable only for debug at the moment:
