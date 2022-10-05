@@ -12,8 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Tools.Ops
-
 module GSourceView_params = struct
   let syntax () =
     let syntax_mgr = GSourceView3.source_language_manager ~default:true in
@@ -129,7 +127,7 @@ module Tags = struct
     (fun t ->
       try Some (Hashtbl.find reverse t#get_oid) with
       | Not_found -> None),
-    fun obuf n ->
+    fun _obuf n ->
       update_if_font_changed ();
       try Hashtbl.find indent_tags n with
       | Not_found ->
@@ -348,8 +346,6 @@ let trigger_reindent ?cont t reindent_needed =
   | current ->
     t.need_reindent <- reindent_max current reindent_needed
 
-let raw_contents buf = buf.gbuffer#get_text ()
-
 let get_indented_text ~start ~stop buf =
   let indent_at it =
     List.fold_left (fun indent tag ->
@@ -370,7 +366,7 @@ let get_indented_text ~start ~stop buf =
         if s#offset >= stop#offset then stop else s
       in
       if not start#ends_line then
-        for i = 1 to indent_at start do Buffer.add_char out ' ' done;
+        for _ = 1 to indent_at start do Buffer.add_char out ' ' done;
       Buffer.add_string out (buf.gbuffer#get_text ~start ~stop ());
       get_lines stop
   in

@@ -12,8 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Tools.Ops
-
 module OBuf = OcamlBuffer
 
 let rec protect parent ?(loop=false) ?(err = fun () -> ()) f x =
@@ -104,14 +102,14 @@ module TopActions = struct
     match top.TopUi.process with Some process -> Top.kill process
                                | None -> ()
 
-  let clear top buf =
+  let clear top _buf =
     top.TopUi.buffer#delete
       ~start:top.TopUi.buffer#start_iter
       ~stop:top.TopUi.buffer#end_iter;
 end
 
 module UIActions = struct
-  let zoom value top_view src_view top buf =
+  let zoom value top_view src_view _top buf =
     let font = GPango.font_description_from_string !Cfg.font in
     let size = max 6 @@ min 24 @@ font#size / Pango.scale +  value in
     font#modify ~size:(size * Pango.scale) ();
@@ -266,7 +264,7 @@ let _ =
     if Cfg.os = Cfg.Windows then
       let gtkrc = Filename.concat !Cfg.datadir "gtkrc" in
       (try Glib.setenv "GTK_PATH" !Cfg.datadir true with Not_found -> ());
-      if Sys.file_exists gtkrc then GtkMain.Rc.parse gtkrc
+      if Sys.file_exists gtkrc then GtkMain.Rc.parse ~file:gtkrc
   in
   let main_window = Gui.main_window ()
   in

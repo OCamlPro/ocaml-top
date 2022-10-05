@@ -12,8 +12,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Tools.Ops
-
 let _ = GtkMain.Main.init()
 
 module Controls = struct
@@ -45,8 +43,8 @@ module Controls = struct
       | `QUIT -> "quit"
     in
     let file =
-      let (/) = Filename.concat in
-      !Cfg.datadir / "icons" / name ^ ".png"
+      let (//) = Filename.concat in
+      !Cfg.datadir // "icons" // name ^ ".png"
     in
     let pixbuf = GdkPixbuf.from_file_at_size file ~width:22 ~height:22 in
     let img = GMisc.image ~pixbuf () in
@@ -320,7 +318,7 @@ module Dialogs = struct
   type 'a cps = ('a -> unit) -> unit
 
   let choose_file ~parent action ?(cancel = fun () -> ()) k =
-    let title, button_label = match action with
+    let title, _button_label = match action with
       | `OPEN -> "Please choose file to load", "Load"
       | `SAVE -> "Please choose file to save to", "Save"
     in

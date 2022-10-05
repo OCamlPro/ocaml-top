@@ -38,23 +38,23 @@ let is_unix = match os with
   | Linux | OSX | Other -> true
   | Windows -> false
 
-let ( / ) = Filename.concat
+let ( // ) = Filename.concat
 
 let program_dir =
   let dir = Filename.dirname Sys.executable_name in
-  if Filename.is_relative dir then Sys.getcwd () / dir
+  if Filename.is_relative dir then Sys.getcwd () // dir
   else dir
 
 let datadir =
   let default =
     if is_unix && Filename.basename program_dir = "bin" then
-      Filename.dirname program_dir / "share" / "ocaml-top"
+      Filename.dirname program_dir // "share" // "ocaml-top"
     else
-      program_dir / "data"
+      program_dir // "data"
   in
   let default =
     if Sys.file_exists default && Sys.is_directory default then default
-    else Sys.getcwd () / "data"
+    else Sys.getcwd () // "data"
   in
   ref default
 
@@ -75,6 +75,6 @@ let ocaml_cmd, ocaml_opts, stdlib_dir =
   else if Sys.command "ocamlrun ocaml -vnum" = 0
   then ref "ocamlrun", ref ["ocaml"], None
   else
-  ref (program_dir / "bin" / "ocamlrun"),
-  ref [program_dir / "bin" / "ocaml"; "-I"; program_dir / "lib" / "ocaml"],
-  Some (program_dir / "lib" / "ocaml")
+  ref (program_dir // "bin" // "ocamlrun"),
+  ref [program_dir // "bin" // "ocaml"; "-I"; program_dir // "lib" // "ocaml"],
+  Some (program_dir // "lib" // "ocaml")
