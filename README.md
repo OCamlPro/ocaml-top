@@ -3,6 +3,23 @@ ocaml-top
 
 A simple cross-platform OCaml code editor built for top-level evaluation.
 
+# DEPRECATION NOTICE
+
+-------------------------------------------------------------------------
+
+This project is not maintained anymore.
+
+If you think this project should keep being maintained:
+
+* external contributions are welcome to fix issues and add new features ;
+
+* maintenance by OCamlPro's engineers can be funded by external entities.
+
+In both cases, since we are not watching the project anymore, contact
+us by mail at contact@ocamlpro.com!
+
+-------------------------------------------------------------------------
+
 ## Features
 
 * Full functionality on Windows
