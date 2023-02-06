@@ -320,7 +320,7 @@ module Dialogs = struct
   type 'a cps = ('a -> unit) -> unit
 
   let choose_file ~parent action ?(cancel = fun () -> ()) k =
-    let title, button_label = match action with
+    let title, _button_label = match action with
       | `OPEN -> "Please choose file to load", "Load"
       | `SAVE -> "Please choose file to save to", "Save"
     in
