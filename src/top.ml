@@ -42,7 +42,7 @@ type t = {
 
 let set_status t st = t.status <- st; t.status_change_hook t
 
-exception Not_running
+(* exception Not_running *)
 
 let main_thread = Thread.self ()
 
@@ -228,7 +228,7 @@ let start schedule response_handler status_hook =
   (* Wait for the first prompt to set the status to "Ready" and accept
      commands *)
   t.receive_hook <-
-    Some (await_full_response @@ fun response ->
+    Some (await_full_response @@ fun _response ->
         t.receive_hook <- None;
         set_status t Ready);
   t

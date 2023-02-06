@@ -333,7 +333,7 @@ Gtk-WARNING **: Allocating size to GtkImage 0x556f667effa0 without calling gtk_w
       top.buffer#delete ~start:iter ~stop:iter#forward_char
 
 let rec top_start ~init ~status_change_hook top =
-  let schedule f = GMain.Idle.add @@ fun () ->
+  let schedule f = ignore @@ GMain.Idle.add @@ fun () ->
       try f (); false with e ->
           Printf.eprintf
             "Error in toplevel interaction: %s%!" (Tools.printexc e);
