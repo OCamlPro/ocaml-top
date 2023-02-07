@@ -15,7 +15,7 @@ depends: [
   "ocp-indent" {>= "1.8.1"}
   "ocp-index" {>= "1.3.4"}
 ]
-build: ["dune" "build" "-p" name]
+build: ["dune" "build" "-p" name "-j" jobs]
 dev-repo: "git+https://github.com/OCamlPro/ocaml-top.git"
 url {
   src: "git+file:///home/lg/ocamlpro/ocaml-top#master"
